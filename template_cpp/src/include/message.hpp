@@ -5,39 +5,35 @@
 #include <cstdlib>
 #include <atomic>
 #include <iostream>
+#include <string>
 
 class Message
 {
 private:
     uint32_t msg_id;
     unsigned long sender_id;
-    char *msg;
+    std::string msg;
     size_t msg_size;
 
     static std::atomic<uint32_t> msg_counter;
 
 public:
-    Message(unsigned long sender_id, const char *msg, size_t msg_size) : sender_id(sender_id), msg_size(msg_size)
+    Message(unsigned long sender_id, const char *msg, size_t msg_size)
+        : sender_id(sender_id), msg(msg, msg_size), msg_size(msg_size)
     {
         msg_id = msg_counter++;
-
-        this->msg = new char[msg_size + 1];
-        std::memcpy(this->msg, msg, msg_size);
-        this->msg[msg_size] = '\0';
     }
 
-    Message(uint32_t msg_id, unsigned long sender_id, const char *msg, size_t msg_size) : msg_id(msg_id), sender_id(sender_id), msg_size(msg_size)
+    Message(uint32_t msg_id, unsigned long sender_id, const char *msg, size_t msg_size)
+        : msg_id(msg_id), sender_id(sender_id), msg(msg, msg_size), msg_size(msg_size)
     {
-        this->msg = new char[msg_size + 1];
-        std::memcpy(this->msg, msg, msg_size);
-        this->msg[msg_size] = '\0';
     }
 
-    ~Message() { delete[] msg; }
+    ~Message() = default;
 
     uint32_t get_msg_id() const { return msg_id; }
     unsigned long get_sender_id() const { return sender_id; }
-    const char *get_msg() const { return msg; }
+    const char *get_msg() const { return msg.c_str(); }
     size_t get_msg_size() const { return msg_size; }
 
     static char *serialize(const Message &message, size_t &buffer_size)
@@ -55,7 +51,7 @@ public:
         std::memcpy(buffer + offset, &message.msg_size, sizeof(message.msg_size));
         offset += sizeof(message.msg_size);
 
-        std::memcpy(buffer + offset, message.msg, message.msg_size);
+        std::memcpy(buffer + offset, message.msg.c_str(), message.msg_size);
 
         return buffer;
     }
@@ -72,14 +68,16 @@ public:
         std::memcpy(&sender_id, buffer + offset, sizeof(sender_id));
         offset += sizeof(sender_id);
 
-        size_t msg_size = received_size - sizeof(msg_id) - sizeof(sender_id) - sizeof(msg_size);
+        size_t msg_size;
+        std::memcpy(&msg_size, buffer + offset, sizeof(msg_size));
         offset += sizeof(msg_size);
 
-        char *msg = new char[msg_size + 1];
-        std::memcpy(msg, buffer + offset, msg_size);
-        msg[msg_size] = '\0';
+        if (offset + msg_size > received_size)
+        {
+            throw std::runtime_error("Deserialization error: received buffer size is smaller than expected message size.");
+        }
 
-        return Message(msg_id, sender_id, msg, msg_size);
+        return Message(msg_id, sender_id, buffer + offset, msg_size);
     }
 };
 

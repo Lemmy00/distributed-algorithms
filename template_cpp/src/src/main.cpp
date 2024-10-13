@@ -81,18 +81,19 @@ int main(int argc, char **argv)
   std::cout << "Broadcasting and delivering messages...\n\n";
 
   Parser::Host currentHost = hostMap[parser.id()];
-  auto perfectLinks = new PerfectLinks(currentHost.ip, currentHost.port);
-  if (config.get_receiver_index() == parser.id())
-  {
-    std::cout << "I am the receiver.\n";
-    perfectLinks->recv();
-  }
-  else
+  size_t numThreads = 4;
+  auto perfectLinks = new PerfectLinks(currentHost.ip, currentHost.port, numThreads);
+  perfectLinks->start();
+  if (config.get_receiver_index() != parser.id())
   {
     std::cout << "I am a sender.\n";
-    const char *message = strdup("test");
-    Message msg(parser.id(), message, strlen(message));
-    perfectLinks->send(hostMap[config.get_receiver_index()].ip, hostMap[config.get_receiver_index()].port, msg);
+    for (unsigned long i = 0; i < config.get_num_msgs(); i++)
+    {
+      std::string message = "test" + std::to_string(i);
+      Message msg(parser.id(), message.c_str(), message.length());
+      std::cout << "Sending message with ID: " << msg.get_msg_id() << " with content: " << msg.get_msg() << "\n";
+      perfectLinks->send(hostMap[config.get_receiver_index()].ip, hostMap[config.get_receiver_index()].port, msg);
+    }
   }
 
   // After a process finishes broadcasting,
