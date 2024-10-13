@@ -8,3 +8,14 @@ The goal of this practical project is to implement certain building blocks neces
 
 In this repository, you can find the template for Java and C/C++, but also helpful tools for you to use.
 For instructions and details, please refer to the project description.
+
+
+## Perfect Links commands
+```
+./run.sh --id 1 --hosts ../example/hosts --output ../example/output/1.output ../example/configs/perfect-links.config
+
+./run.sh --id 2 --hosts ../example/hosts --output ../example/output/1.output ../example/configs/perfect-links.config
+
+./run.sh --id 3 --hosts ../example/hosts --output ../example/output/1.output ../example/configs/perfect-links.config
+
+```
