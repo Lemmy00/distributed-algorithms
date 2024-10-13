@@ -1,13 +1,19 @@
 #include <chrono>
 #include <iostream>
 #include <thread>
+#include <unordered_map>
 
 #include "parser.hpp"
 #include "hello.h"
+#include "fair_loss_links.hpp"
+#include "stubborn_links.hpp"
+#include "perfect_links.hpp"
+#include "message.hpp"
+#include "config.hpp"
 #include <signal.h>
 
-
-static void stop(int) {
+static void stop(int)
+{
   // reset signal handlers to default
   signal(SIGTERM, SIG_DFL);
   signal(SIGINT, SIG_DFL);
@@ -22,7 +28,8 @@ static void stop(int) {
   exit(0);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
   signal(SIGTERM, stop);
   signal(SIGINT, stop);
 
@@ -33,7 +40,6 @@ int main(int argc, char **argv) {
   Parser parser(argc, argv);
   parser.parse();
 
-  hello();
   std::cout << std::endl;
 
   std::cout << "My PID: " << getpid() << "\n";
@@ -45,13 +51,17 @@ int main(int argc, char **argv) {
   std::cout << "List of resolved hosts is:\n";
   std::cout << "==========================\n";
   auto hosts = parser.hosts();
-  for (auto &host : hosts) {
+  std::unordered_map<unsigned long, Parser::Host> hostMap;
+  for (auto &host : hosts)
+  {
     std::cout << host.id << "\n";
     std::cout << "Human-readable IP: " << host.ipReadable() << "\n";
     std::cout << "Machine-readable IP: " << host.ip << "\n";
     std::cout << "Human-readbale Port: " << host.portReadable() << "\n";
     std::cout << "Machine-readbale Port: " << host.port << "\n";
     std::cout << "\n";
+
+    hostMap[host.id] = host;
   }
   std::cout << "\n";
 
@@ -63,13 +73,39 @@ int main(int argc, char **argv) {
   std::cout << "===============\n";
   std::cout << parser.configPath() << "\n\n";
 
+  parser.configPath();
+  Config config(parser.configPath());
+  std::cout << "Number of messages: " << config.get_num_msgs() << "\n";
+  std::cout << "Receiver index: " << config.get_receiver_index() << "\n\n";
+
   std::cout << "Doing some initialization...\n\n";
 
   std::cout << "Broadcasting and delivering messages...\n\n";
 
+  Parser::Host currentHost = hostMap[parser.id()];
+  auto perfectLinks = new PerfectLinks(currentHost.ip, currentHost.port);
+  if (config.get_receiver_index() == parser.id())
+  {
+    std::cout << "I am the receiver.\n";
+    while (true)
+    {
+      char src_addr[64];
+      unsigned short src_port;
+      perfectLinks->recv(src_addr, &src_port);
+    }
+  }
+  else
+  {
+    std::cout << "I am a sender.\n";
+    const char *message = strdup("test");
+    Message msg(parser.id(), message, strlen(message));
+    perfectLinks->send(hostMap[config.get_receiver_index()].ip, hostMap[config.get_receiver_index()].port, msg);
+  }
+
   // After a process finishes broadcasting,
   // it waits forever for the delivery of messages.
-  while (true) {
+  while (true)
+  {
     std::this_thread::sleep_for(std::chrono::hours(1));
   }
 
