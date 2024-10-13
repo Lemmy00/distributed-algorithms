@@ -22,23 +22,23 @@
 #include "fair_loss_links.hpp"
 #include "message.hpp"
 
-#define BUFFER_SIZE 128
+#define BUFFER_SIZE 64
 
 class PerfectLinks
 {
 private:
     FairLossLinks fairLossLinks;
     std::unordered_map<unsigned long, std::unordered_set<uint32_t>> deliveredMessages;
+    std::unordered_set<uint32_t> ackedMessages;
     std::mutex deliveredMessagesMutex;
+    std::mutex ackedMessagesMutex;
 
-    // Thread pool and task queue for sender threads
     std::vector<std::thread> senderThreads;
     std::queue<std::function<void()>> sendTasks;
     std::mutex queueMutex;
     std::condition_variable queueCV;
     bool stopThreads = false;
 
-    // Receiver thread
     std::thread receiverThread;
     size_t numThreads;
 
@@ -49,14 +49,14 @@ public:
 
     void send(char *dest_addr, unsigned short dest_port, Message &msg);
     void send(in_addr_t dest_addr, unsigned short dest_port, Message &msg);
-    void recv();
 
-    void start(); // Start sender and receiver threads
-    void stop();  // Stop all threads gracefully
+    void start();
+    void stop();
 
 private:
     void sendWorker();
     void receiverWorker();
+    void sendAck(in_addr_t dest_addr, unsigned short dest_port, uint32_t msg_id, unsigned long sender_id);
 };
 
 PerfectLinks::PerfectLinks(char *ip, unsigned short port, size_t num_threads) : fairLossLinks(ip, port), numThreads(num_threads) {}
@@ -107,10 +107,16 @@ void PerfectLinks::send(char *dest_addr, unsigned short dest_port, Message &msg)
 
         while (true)
         {
-            fairLossLinks.send(dest_addr, dest_port, buffer.get(), buffer_size);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            {
+                std::lock_guard<std::mutex> lock(ackedMessagesMutex);
+                if (ackedMessages.find(msg_ptr->get_msg_id()) != ackedMessages.end())
+                {
+                    break;
+                }
+            }
 
-            // You can add a stopping condition if required
+            fairLossLinks.send(dest_addr, dest_port, buffer.get(), buffer_size);
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
     };
 
@@ -132,10 +138,16 @@ void PerfectLinks::send(in_addr_t dest_addr, unsigned short dest_port, Message &
 
         while (true)
         {
-            fairLossLinks.send(dest_addr, dest_port, buffer.get(), buffer_size);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            {
+                std::lock_guard<std::mutex> lock(ackedMessagesMutex);
+                if (ackedMessages.find(msg_ptr->get_msg_id()) != ackedMessages.end())
+                {
+                    break;
+                }
+            }
 
-            // You can add a stopping condition if required
+            fairLossLinks.send(dest_addr, dest_port, buffer.get(), buffer_size);
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
     };
 
@@ -170,16 +182,23 @@ void PerfectLinks::receiverWorker()
 {
     while (!stopThreads)
     {
-        in_addr_t src_addr[BUFFER_SIZE];
+        in_addr src_addr;
         unsigned short src_port;
 
         char buffer[BUFFER_SIZE];
         size_t buffer_size = BUFFER_SIZE;
-        size_t recv_size = fairLossLinks.recv(buffer, buffer_size, src_addr, &src_port);
+        size_t recv_size = fairLossLinks.recv(buffer, buffer_size, &src_addr, &src_port);
 
         if (recv_size > 0)
         {
             Message msg = Message::deserialize(buffer, recv_size);
+            if (msg.get_is_ack())
+            {
+                std::lock_guard<std::mutex> lock(ackedMessagesMutex);
+                ackedMessages.insert(msg.get_msg_id());
+                std::cout << "Received ACK for message with ID: " << msg.get_msg_id() << "\n";
+                continue;
+            }
 
             {
                 std::lock_guard<std::mutex> lock(deliveredMessagesMutex);
@@ -192,11 +211,24 @@ void PerfectLinks::receiverWorker()
                 deliveredMessages[msg.get_sender_id()].insert(msg.get_msg_id());
             }
 
+            // Send acknowledgment back to the sender
+            sendAck(src_addr.s_addr, src_port, msg.get_msg_id(), msg.get_sender_id());
+
             std::cout << "Delivered message with ID: " << msg.get_msg_id()
                       << " from sender: " << msg.get_sender_id()
                       << ", content: " << msg.get_msg()
-                      << ", from address: " << inet_ntoa(*reinterpret_cast<in_addr *>(src_addr))
+                      << ", from address: " << inet_ntoa(src_addr)
                       << ":" << ntohs(src_port) << "\n";
         }
     }
+}
+
+void PerfectLinks::sendAck(in_addr_t dest_addr, unsigned short dest_port, uint32_t msg_id, unsigned long sender_id)
+{
+    Message ack_msg(msg_id, sender_id, true);
+
+    size_t buffer_size;
+    std::unique_ptr<char[]> buffer(Message::serialize(ack_msg, buffer_size));
+
+    fairLossLinks.send(dest_addr, dest_port, buffer.get(), buffer_size);
 }

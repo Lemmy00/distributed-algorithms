@@ -14,24 +14,40 @@ private:
     unsigned long sender_id;
     std::string msg;
     size_t msg_size;
+    bool is_ack;
 
     static std::atomic<uint32_t> msg_counter;
 
 public:
     Message(unsigned long sender_id, const char *msg, size_t msg_size)
-        : sender_id(sender_id), msg(msg, msg_size), msg_size(msg_size)
+        : sender_id(sender_id), msg(msg, msg_size), msg_size(msg_size), is_ack(false)
     {
         msg_id = msg_counter++;
     }
 
     Message(unsigned long sender_id, const std::string &msg)
-        : sender_id(sender_id), msg(msg), msg_size(msg.length())
+        : sender_id(sender_id), msg(msg), msg_size(msg.length()), is_ack(false)
     {
         msg_id = msg_counter++;
     }
 
     Message(uint32_t msg_id, unsigned long sender_id, const char *msg, size_t msg_size)
-        : msg_id(msg_id), sender_id(sender_id), msg(msg, msg_size), msg_size(msg_size)
+        : msg_id(msg_id), sender_id(sender_id), msg(msg, msg_size), msg_size(msg_size), is_ack(false)
+    {
+    }
+
+    Message(uint32_t msg_id, unsigned long sender_id, const std::string &msg)
+        : msg_id(msg_id), sender_id(sender_id), msg(msg), msg_size(msg.length()), is_ack(false)
+    {
+    }
+
+    Message(uint32_t msg_id, unsigned long sender_id, const std::string &msg, bool is_ack)
+        : msg_id(msg_id), sender_id(sender_id), msg(msg), msg_size(msg.length()), is_ack(is_ack)
+    {
+    }
+
+    Message(uint32_t msg_id, unsigned long sender_id, bool is_ack)
+        : msg_id(msg_id), sender_id(sender_id), msg(""), msg_size(0), is_ack(is_ack)
     {
     }
 
@@ -39,12 +55,13 @@ public:
 
     uint32_t get_msg_id() const { return msg_id; }
     unsigned long get_sender_id() const { return sender_id; }
-    const char *get_msg() const { return msg.c_str(); }
+    const std::string &get_msg() const { return msg; }
     size_t get_msg_size() const { return msg_size; }
+    bool get_is_ack() const { return is_ack; }
 
     static char *serialize(const Message &message, size_t &buffer_size)
     {
-        buffer_size = sizeof(message.msg_id) + sizeof(message.sender_id) + sizeof(message.msg_size) + message.msg_size;
+        buffer_size = sizeof(message.msg_id) + sizeof(message.sender_id) + sizeof(message.msg_size) + sizeof(message.is_ack) + message.msg_size;
         char *buffer = new char[buffer_size];
 
         size_t offset = 0;
@@ -56,6 +73,9 @@ public:
 
         std::memcpy(buffer + offset, &message.msg_size, sizeof(message.msg_size));
         offset += sizeof(message.msg_size);
+
+        std::memcpy(buffer + offset, &message.is_ack, sizeof(message.is_ack));
+        offset += sizeof(message.is_ack);
 
         std::memcpy(buffer + offset, message.msg.c_str(), message.msg_size);
 
@@ -78,12 +98,16 @@ public:
         std::memcpy(&msg_size, buffer + offset, sizeof(msg_size));
         offset += sizeof(msg_size);
 
+        bool is_ack;
+        std::memcpy(&is_ack, buffer + offset, sizeof(is_ack));
+        offset += sizeof(is_ack);
+
         if (offset + msg_size > received_size)
         {
             throw std::runtime_error("Deserialization error: received buffer size is smaller than expected message size.");
         }
 
-        return Message(msg_id, sender_id, buffer + offset, msg_size);
+        return Message(msg_id, sender_id, std::string(buffer + offset, msg_size), is_ack);
     }
 };
 

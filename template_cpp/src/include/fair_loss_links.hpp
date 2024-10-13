@@ -23,7 +23,7 @@ public:
     size_t send(char *dest_addr, unsigned short dest_port, const char *buffer, const size_t buffer_size);
     size_t send(in_addr_t dest_addr, unsigned short dest_port, const char *buffer, const size_t buffer_size);
     size_t recv(char *buffer, const size_t buffer_size, char *src_addr, unsigned short *src_port);
-    size_t recv(char *buffer, const size_t buffer_size, in_addr_t *src_addr, unsigned short *src_port);
+    size_t recv(char *buffer, const size_t buffer_size, in_addr *src_addr, unsigned short *src_port);
 };
 
 FairLossLinks::FairLossLinks(char *ip_addr, unsigned short port)
@@ -126,7 +126,7 @@ size_t FairLossLinks::recv(char *buffer, const size_t buffer_size, char *src_add
     return n;
 }
 
-size_t FairLossLinks::recv(char *buffer, const size_t buffer_size, in_addr_t *src_addr, unsigned short *src_port)
+size_t FairLossLinks::recv(char *buffer, const size_t buffer_size, in_addr *src_addr, unsigned short *src_port)
 {
     struct sockaddr_in srcaddr;
     socklen_t len = sizeof(srcaddr);
@@ -138,7 +138,7 @@ size_t FairLossLinks::recv(char *buffer, const size_t buffer_size, in_addr_t *sr
     }
 
     *src_port = ntohs(srcaddr.sin_port);
-    *src_addr = srcaddr.sin_addr.s_addr;
+    *src_addr = srcaddr.sin_addr;
 
     return n;
 }
