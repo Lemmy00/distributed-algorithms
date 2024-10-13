@@ -24,6 +24,12 @@ public:
         msg_id = msg_counter++;
     }
 
+    Message(unsigned long sender_id, const std::string &msg)
+        : sender_id(sender_id), msg(msg), msg_size(msg.length())
+    {
+        msg_id = msg_counter++;
+    }
+
     Message(uint32_t msg_id, unsigned long sender_id, const char *msg, size_t msg_size)
         : msg_id(msg_id), sender_id(sender_id), msg(msg, msg_size), msg_size(msg_size)
     {

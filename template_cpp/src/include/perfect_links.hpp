@@ -17,6 +17,7 @@
 #include <vector>
 #include <queue>
 #include <condition_variable>
+#include <string>
 
 #include "fair_loss_links.hpp"
 #include "message.hpp"
@@ -48,9 +49,10 @@ public:
 
     void send(char *dest_addr, unsigned short dest_port, Message &msg);
     void send(in_addr_t dest_addr, unsigned short dest_port, Message &msg);
+    void recv();
 
-    void start();
-    void stop();
+    void start(); // Start sender and receiver threads
+    void stop();  // Stop all threads gracefully
 
 private:
     void sendWorker();
@@ -103,7 +105,6 @@ void PerfectLinks::send(char *dest_addr, unsigned short dest_port, Message &msg)
         size_t buffer_size;
         std::unique_ptr<char[]> buffer(Message::serialize(*msg_ptr, buffer_size));
 
-        // Stubborn sending logic
         while (true)
         {
             fairLossLinks.send(dest_addr, dest_port, buffer.get(), buffer_size);
@@ -129,7 +130,6 @@ void PerfectLinks::send(in_addr_t dest_addr, unsigned short dest_port, Message &
         size_t buffer_size;
         std::unique_ptr<char[]> buffer(Message::serialize(*msg_ptr, buffer_size));
 
-        // Stubborn sending logic
         while (true)
         {
             fairLossLinks.send(dest_addr, dest_port, buffer.get(), buffer_size);
@@ -179,31 +179,24 @@ void PerfectLinks::receiverWorker()
 
         if (recv_size > 0)
         {
-            try
+            Message msg = Message::deserialize(buffer, recv_size);
+
             {
-                Message msg = Message::deserialize(buffer, recv_size);
-
+                std::lock_guard<std::mutex> lock(deliveredMessagesMutex);
+                auto it = deliveredMessages.find(msg.get_sender_id());
+                if (it != deliveredMessages.end() && it->second.find(msg.get_msg_id()) != it->second.end())
                 {
-                    std::lock_guard<std::mutex> lock(deliveredMessagesMutex);
-                    auto it = deliveredMessages.find(msg.get_sender_id());
-                    if (it != deliveredMessages.end() && it->second.find(msg.get_msg_id()) != it->second.end())
-                    {
-                        continue;
-                    }
-
-                    deliveredMessages[msg.get_sender_id()].insert(msg.get_msg_id());
+                    continue;
                 }
 
-                std::cout << "Delivered message with ID: " << msg.get_msg_id()
-                          << " from sender: " << msg.get_sender_id()
-                          << ", content: " << msg.get_msg()
-                          << ", from address: " << inet_ntoa(*reinterpret_cast<in_addr *>(src_addr))
-                          << ":" << ntohs(src_port) << "\n";
+                deliveredMessages[msg.get_sender_id()].insert(msg.get_msg_id());
             }
-            catch (const std::exception &e)
-            {
-                std::cerr << "Failed to deserialize message: " << e.what() << "\n";
-            }
+
+            std::cout << "Delivered message with ID: " << msg.get_msg_id()
+                      << " from sender: " << msg.get_sender_id()
+                      << ", content: " << msg.get_msg()
+                      << ", from address: " << inet_ntoa(*reinterpret_cast<in_addr *>(src_addr))
+                      << ":" << ntohs(src_port) << "\n";
         }
     }
 }

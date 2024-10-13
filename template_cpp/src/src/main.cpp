@@ -90,7 +90,7 @@ int main(int argc, char **argv)
     for (unsigned long i = 0; i < config.get_num_msgs(); i++)
     {
       std::string message = "test" + std::to_string(i);
-      Message msg(parser.id(), message.c_str(), message.length());
+      Message msg(parser.id(), message);
       std::cout << "Sending message with ID: " << msg.get_msg_id() << " with content: " << msg.get_msg() << "\n";
       perfectLinks->send(hostMap[config.get_receiver_index()].ip, hostMap[config.get_receiver_index()].port, msg);
     }
