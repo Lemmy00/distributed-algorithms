@@ -5,8 +5,6 @@
 
 #include "parser.hpp"
 #include "hello.h"
-#include "fair_loss_links.hpp"
-#include "stubborn_links.hpp"
 #include "perfect_links.hpp"
 #include "message.hpp"
 #include "config.hpp"
@@ -87,12 +85,7 @@ int main(int argc, char **argv)
   if (config.get_receiver_index() == parser.id())
   {
     std::cout << "I am the receiver.\n";
-    while (true)
-    {
-      char src_addr[64];
-      unsigned short src_port;
-      perfectLinks->recv(src_addr, &src_port);
-    }
+    perfectLinks->recv();
   }
   else
   {
