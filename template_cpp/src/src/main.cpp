@@ -85,7 +85,7 @@ int main(int argc, char **argv)
   Parser::Host currentHost = hostMap[parser.id()];
   size_t numThreads = 4;
 
-  auto perfectLinks = new PerfectLinks(currentHost.ip, currentHost.port, numThreads, logger);
+  auto perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, numThreads, logger);
 
   perfectLinks->start();
   if (config.get_receiver_index() != parser.id())

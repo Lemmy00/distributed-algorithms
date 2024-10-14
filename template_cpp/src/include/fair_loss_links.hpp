@@ -15,18 +15,18 @@ private:
     struct sockaddr_in servaddr;
 
 public:
-    FairLossLinks(char *ip, unsigned short port);
+    FairLossLinks(const char *ip, unsigned short port);
     FairLossLinks(in_addr_t ip, unsigned short port);
 
     ~FairLossLinks();
 
-    size_t send(char *dest_addr, unsigned short dest_port, const char *buffer, const size_t buffer_size);
+    size_t send(const char *dest_addr, unsigned short dest_port, const char *buffer, const size_t buffer_size);
     size_t send(in_addr_t dest_addr, unsigned short dest_port, const char *buffer, const size_t buffer_size);
     size_t recv(char *buffer, const size_t buffer_size, char *src_addr, unsigned short *src_port);
     size_t recv(char *buffer, const size_t buffer_size, in_addr *src_addr, unsigned short *src_port);
 };
 
-FairLossLinks::FairLossLinks(char *ip_addr, unsigned short port)
+FairLossLinks::FairLossLinks(const char *ip_addr, unsigned short port)
 {
     if ((socket_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
     {
@@ -75,7 +75,7 @@ FairLossLinks::~FairLossLinks()
     close(socket_fd);
 }
 
-size_t FairLossLinks::send(char *dest_addr, unsigned short dest_port, const char *buffer, const size_t buffer_size)
+size_t FairLossLinks::send(const char *dest_addr, unsigned short dest_port, const char *buffer, const size_t buffer_size)
 {
     struct sockaddr_in destaddr;
     memset(&destaddr, 0, sizeof(destaddr));

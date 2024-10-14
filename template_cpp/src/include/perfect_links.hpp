@@ -46,15 +46,16 @@ private:
     std::shared_ptr<Logger> logger;
 
 public:
-    PerfectLinks(char *ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance);
+    PerfectLinks(const char *ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance);
     PerfectLinks(in_addr_t ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance);
     ~PerfectLinks();
 
-    void send(char *dest_addr, unsigned short dest_port, Message &msg);
-    void send(in_addr_t dest_addr, unsigned short dest_port, Message &msg);
+    void send(const char *dest_addr, unsigned short dest_port, const Message &msg);
+    void send(in_addr_t dest_addr, unsigned short dest_port, const Message &msg);
 
     void start();
     void stop();
+    void shutdown();
 
 private:
     void sendWorker();
@@ -62,15 +63,15 @@ private:
     void sendAck(in_addr_t dest_addr, unsigned short dest_port, uint32_t msg_id, unsigned long sender_id);
 };
 
-PerfectLinks::PerfectLinks(char *ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance)
+PerfectLinks::PerfectLinks(const char *ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance)
     : fairLossLinks(ip, port), numThreads(num_threads), logger(std::move(loggerInstance)) {}
 
 PerfectLinks::PerfectLinks(in_addr_t ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance)
-    : fairLossLinks(ip, port), numThreads(num_threads), logger(loggerInstance) {}
+    : fairLossLinks(ip, port), numThreads(num_threads), logger(std::move(loggerInstance)) {}
 
 PerfectLinks::~PerfectLinks()
 {
-    stop();
+    shutdown();
 }
 
 void PerfectLinks::start()
@@ -104,7 +105,20 @@ void PerfectLinks::stop()
     }
 }
 
-void PerfectLinks::send(char *dest_addr, unsigned short dest_port, Message &msg)
+void PerfectLinks::shutdown()
+{
+    stop();
+    std::cout << "Shutting down PerfectLinks...\n";
+    {
+        std::lock_guard<std::mutex> lock(queueMutex);
+        while (!sendTasks.empty())
+        {
+            sendTasks.pop();
+        }
+    }
+}
+
+void PerfectLinks::send(const char *dest_addr, unsigned short dest_port, const Message &msg)
 {
     auto msg_ptr = std::make_shared<Message>(msg);
 
@@ -124,7 +138,7 @@ void PerfectLinks::send(char *dest_addr, unsigned short dest_port, Message &msg)
             }
 
             fairLossLinks.send(dest_addr, dest_port, buffer.get(), buffer_size);
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
     };
 
@@ -135,7 +149,7 @@ void PerfectLinks::send(char *dest_addr, unsigned short dest_port, Message &msg)
     queueCV.notify_one();
 }
 
-void PerfectLinks::send(in_addr_t dest_addr, unsigned short dest_port, Message &msg)
+void PerfectLinks::send(in_addr_t dest_addr, unsigned short dest_port, const Message &msg)
 {
     auto msg_ptr = std::make_shared<Message>(msg);
 
@@ -156,7 +170,7 @@ void PerfectLinks::send(in_addr_t dest_addr, unsigned short dest_port, Message &
             }
 
             fairLossLinks.send(dest_addr, dest_port, buffer.get(), buffer_size);
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
     };
 
