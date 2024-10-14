@@ -21,6 +21,7 @@
 
 #include "fair_loss_links.hpp"
 #include "message.hpp"
+#include "logger.hpp"
 
 #define BUFFER_SIZE 64
 
@@ -42,9 +43,11 @@ private:
     std::thread receiverThread;
     size_t numThreads;
 
+    std::shared_ptr<Logger> logger;
+
 public:
-    PerfectLinks(char *ip, unsigned short port, size_t num_threads);
-    PerfectLinks(in_addr_t ip, unsigned short port, size_t num_threads);
+    PerfectLinks(char *ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance);
+    PerfectLinks(in_addr_t ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance);
     ~PerfectLinks();
 
     void send(char *dest_addr, unsigned short dest_port, Message &msg);
@@ -59,8 +62,11 @@ private:
     void sendAck(in_addr_t dest_addr, unsigned short dest_port, uint32_t msg_id, unsigned long sender_id);
 };
 
-PerfectLinks::PerfectLinks(char *ip, unsigned short port, size_t num_threads) : fairLossLinks(ip, port), numThreads(num_threads) {}
-PerfectLinks::PerfectLinks(in_addr_t ip, unsigned short port, size_t num_threads) : fairLossLinks(ip, port), numThreads(num_threads) {}
+PerfectLinks::PerfectLinks(char *ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance)
+    : fairLossLinks(ip, port), numThreads(num_threads), logger(std::move(loggerInstance)) {}
+
+PerfectLinks::PerfectLinks(in_addr_t ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance)
+    : fairLossLinks(ip, port), numThreads(num_threads), logger(loggerInstance) {}
 
 PerfectLinks::~PerfectLinks()
 {
@@ -93,7 +99,9 @@ void PerfectLinks::stop()
     }
 
     if (receiverThread.joinable())
+    {
         receiverThread.join();
+    }
 }
 
 void PerfectLinks::send(char *dest_addr, unsigned short dest_port, Message &msg)
@@ -135,6 +143,7 @@ void PerfectLinks::send(in_addr_t dest_addr, unsigned short dest_port, Message &
     {
         size_t buffer_size;
         std::unique_ptr<char[]> buffer(Message::serialize(*msg_ptr, buffer_size));
+        logger->log("b " + msg_ptr->get_msg());
 
         while (true)
         {
@@ -209,9 +218,9 @@ void PerfectLinks::receiverWorker()
                 }
 
                 deliveredMessages[msg.get_sender_id()].insert(msg.get_msg_id());
+                logger->log("d " + std::to_string(msg.get_sender_id()) + " " + msg.get_msg());
             }
 
-            // Send acknowledgment back to the sender
             sendAck(src_addr.s_addr, src_port, msg.get_msg_id(), msg.get_sender_id());
 
             std::cout << "Delivered message with ID: " << msg.get_msg_id()

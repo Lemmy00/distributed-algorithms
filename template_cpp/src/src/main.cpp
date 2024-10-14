@@ -8,6 +8,7 @@
 #include "perfect_links.hpp"
 #include "message.hpp"
 #include "config.hpp"
+#include "logger.hpp"
 #include <signal.h>
 
 static void stop(int)
@@ -66,6 +67,7 @@ int main(int argc, char **argv)
   std::cout << "Path to output:\n";
   std::cout << "===============\n";
   std::cout << parser.outputPath() << "\n\n";
+  auto logger = std::make_shared<Logger>(parser.outputPath());
 
   std::cout << "Path to config:\n";
   std::cout << "===============\n";
@@ -82,19 +84,23 @@ int main(int argc, char **argv)
 
   Parser::Host currentHost = hostMap[parser.id()];
   size_t numThreads = 4;
-  auto perfectLinks = new PerfectLinks(currentHost.ip, currentHost.port, numThreads);
+
+  auto perfectLinks = new PerfectLinks(currentHost.ip, currentHost.port, numThreads, logger);
+
   perfectLinks->start();
   if (config.get_receiver_index() != parser.id())
   {
     std::cout << "I am a sender.\n";
-    for (unsigned long i = 0; i < config.get_num_msgs(); i++)
+    for (unsigned long i = 1; i <= config.get_num_msgs(); i++)
     {
-      std::string message = "test" + std::to_string(i);
+      std::string message = std::to_string(i);
       Message msg(parser.id(), message);
       std::cout << "Sending message with ID: " << msg.get_msg_id() << " with content: " << msg.get_msg() << "\n";
       perfectLinks->send(hostMap[config.get_receiver_index()].ip, hostMap[config.get_receiver_index()].port, msg);
     }
   }
+
+  std::cout << "Waiting for messages...\n";
 
   // After a process finishes broadcasting,
   // it waits forever for the delivery of messages.
