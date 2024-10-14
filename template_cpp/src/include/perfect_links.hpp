@@ -228,6 +228,8 @@ void PerfectLinks::receiverWorker()
                 continue;
             }
 
+            sendAck(src_addr.s_addr, src_port, msg.get_msg_id(), msg.get_sender_id());
+
             {
                 std::lock_guard<std::mutex> lock(deliveredMessagesMutex);
                 auto it = deliveredMessages.find(msg.get_sender_id());
@@ -239,8 +241,6 @@ void PerfectLinks::receiverWorker()
                 deliveredMessages[msg.get_sender_id()].insert(msg.get_msg_id());
                 logger->log("d " + std::to_string(msg.get_sender_id()) + " " + msg.get_msg());
             }
-
-            sendAck(src_addr.s_addr, src_port, msg.get_msg_id(), msg.get_sender_id());
 
             std::cout << "Delivered message with ID: " << msg.get_msg_id()
                       << " from sender: " << msg.get_sender_id()
