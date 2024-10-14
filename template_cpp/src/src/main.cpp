@@ -11,6 +11,8 @@
 #include "logger.hpp"
 #include <signal.h>
 
+std::shared_ptr<Logger> logger;
+
 static void stop(int)
 {
   // reset signal handlers to default
@@ -22,6 +24,7 @@ static void stop(int)
 
   // write/flush output file if necessary
   std::cout << "Writing output.\n";
+  logger->close_logger();
 
   // exit directly from signal handler
   exit(0);
@@ -67,7 +70,7 @@ int main(int argc, char **argv)
   std::cout << "Path to output:\n";
   std::cout << "===============\n";
   std::cout << parser.outputPath() << "\n\n";
-  auto logger = std::make_shared<Logger>(parser.outputPath());
+  logger = std::make_shared<Logger>(parser.outputPath());
 
   std::cout << "Path to config:\n";
   std::cout << "===============\n";
