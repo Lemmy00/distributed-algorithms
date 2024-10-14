@@ -83,9 +83,20 @@ int main(int argc, char **argv)
   std::cout << "Broadcasting and delivering messages...\n\n";
 
   Parser::Host currentHost = hostMap[parser.id()];
-  size_t numThreads = 4;
 
-  auto perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, numThreads, logger);
+  size_t num_sender_threads;
+  size_t num_receiver_threads;
+  if (parser.id() == config.get_receiver_index())
+  {
+    num_sender_threads = 1;
+    num_receiver_threads = 6;
+  }
+  else
+  {
+    num_sender_threads = 6;
+    num_receiver_threads = 1;
+  }
+  auto perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, num_sender_threads, num_receiver_threads, logger);
 
   perfectLinks->start();
   if (config.get_receiver_index() != parser.id())

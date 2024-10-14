@@ -40,14 +40,15 @@ private:
     std::condition_variable queueCV;
     bool stopThreads = false;
 
-    std::thread receiverThread;
-    size_t numThreads;
+    std::vector<std::thread> receiverThreads;
+    size_t numSenderThreads;
+    size_t numReceiverThreads;
 
     std::shared_ptr<Logger> logger;
 
 public:
-    PerfectLinks(const char *ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance);
-    PerfectLinks(in_addr_t ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance);
+    PerfectLinks(const char *ip, unsigned short port, size_t num_sender_threads, size_t num_receiver_threads, std::shared_ptr<Logger> loggerInstance);
+    PerfectLinks(in_addr_t ip, unsigned short port, size_t num_sender_threads, size_t num_receiver_threads, std::shared_ptr<Logger> loggerInstance);
     ~PerfectLinks();
 
     void send(const char *dest_addr, unsigned short dest_port, const Message &msg);
@@ -63,11 +64,11 @@ private:
     void sendAck(in_addr_t dest_addr, unsigned short dest_port, uint32_t msg_id, unsigned long sender_id);
 };
 
-PerfectLinks::PerfectLinks(const char *ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance)
-    : fairLossLinks(ip, port), numThreads(num_threads), logger(std::move(loggerInstance)) {}
+PerfectLinks::PerfectLinks(const char *ip, unsigned short port, size_t num_sender_threads, size_t num_receiver_threads, std::shared_ptr<Logger> loggerInstance)
+    : fairLossLinks(ip, port), numSenderThreads(num_sender_threads), numReceiverThreads(num_receiver_threads), logger(std::move(loggerInstance)) {}
 
-PerfectLinks::PerfectLinks(in_addr_t ip, unsigned short port, size_t num_threads, std::shared_ptr<Logger> loggerInstance)
-    : fairLossLinks(ip, port), numThreads(num_threads), logger(std::move(loggerInstance)) {}
+PerfectLinks::PerfectLinks(in_addr_t ip, unsigned short port, size_t num_sender_threads, size_t num_receiver_threads, std::shared_ptr<Logger> loggerInstance)
+    : fairLossLinks(ip, port), numSenderThreads(num_sender_threads), numReceiverThreads(num_receiver_threads), logger(std::move(loggerInstance)) {}
 
 PerfectLinks::~PerfectLinks()
 {
@@ -77,12 +78,15 @@ PerfectLinks::~PerfectLinks()
 void PerfectLinks::start()
 {
     std::cout << "Starting PerfectLinks...\n";
-    for (size_t i = 0; i < numThreads; ++i)
+    for (size_t i = 0; i < numSenderThreads; ++i)
     {
         senderThreads.emplace_back(&PerfectLinks::sendWorker, this);
     }
 
-    receiverThread = std::thread(&PerfectLinks::receiverWorker, this);
+    for (size_t i = 0; i < numReceiverThreads; ++i)
+    {
+        receiverThreads.emplace_back(&PerfectLinks::receiverWorker, this);
+    }
 }
 
 void PerfectLinks::stop()
@@ -99,9 +103,10 @@ void PerfectLinks::stop()
             t.join();
     }
 
-    if (receiverThread.joinable())
+    for (auto &t : receiverThreads)
     {
-        receiverThread.join();
+        if (t.joinable())
+            t.join();
     }
 }
 
@@ -157,7 +162,6 @@ void PerfectLinks::send(in_addr_t dest_addr, unsigned short dest_port, const Mes
     {
         size_t buffer_size;
         std::unique_ptr<char[]> buffer(Message::serialize(*msg_ptr, buffer_size));
-        logger->log("b " + msg_ptr->get_msg());
 
         while (true)
         {
@@ -165,6 +169,7 @@ void PerfectLinks::send(in_addr_t dest_addr, unsigned short dest_port, const Mes
                 std::lock_guard<std::mutex> lock(ackedMessagesMutex);
                 if (ackedMessages.find(msg_ptr->get_msg_id()) != ackedMessages.end())
                 {
+                    logger->log("b " + msg_ptr->get_msg());
                     break;
                 }
             }
