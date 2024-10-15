@@ -108,7 +108,7 @@ int main(int argc, char **argv)
   {
     num_sender_threads = 6;
     num_receiver_threads = 1;
-    maxBufferSize = 5000;
+    maxBufferSize = 10000;
   }
   logger = std::make_shared<Logger>(parser.outputPath(), maxBufferSize);
   perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, num_sender_threads, num_receiver_threads, logger);
