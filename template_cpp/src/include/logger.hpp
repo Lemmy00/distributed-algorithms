@@ -17,7 +17,7 @@ private:
     const size_t maxBufferSize;
 
 public:
-    Logger(const std::string &outputPath, size_t bufferSize = 100000)
+    Logger(const std::string &outputPath, size_t bufferSize = 5000)
         : maxBufferSize(bufferSize)
     {
         outputFile.open(outputPath, std::ios::out | std::ios::app);
@@ -39,15 +39,30 @@ public:
 
         if (logBuffer.size() >= maxBufferSize)
         {
-            flush();
+            flush_locked();
+        }
+    }
+
+    void close_logger()
+    {
+        flush();
+        if (outputFile.is_open())
+        {
+            outputFile.close();
         }
     }
 
     void flush()
     {
+        std::lock_guard<std::mutex> lock(bufferMutex);
+        flush_locked();
+    }
+
+private:
+    void flush_locked()
+    {
         if (outputFile.is_open())
         {
-            std::lock_guard<std::mutex> lock(bufferMutex);
             while (!logBuffer.empty())
             {
                 outputFile << logBuffer.front() << std::endl;
@@ -58,15 +73,6 @@ public:
         else
         {
             std::cerr << "Log file is not open." << std::endl;
-        }
-    }
-
-    void close_logger()
-    {
-        flush();
-        if (outputFile.is_open())
-        {
-            outputFile.close();
         }
     }
 };

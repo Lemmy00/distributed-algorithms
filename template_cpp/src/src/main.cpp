@@ -12,6 +12,7 @@
 #include <signal.h>
 
 std::shared_ptr<Logger> logger;
+std::unique_ptr<PerfectLinks> perfectLinks;
 
 static void stop(int)
 {
@@ -22,9 +23,17 @@ static void stop(int)
   // immediately stop network packet processing
   std::cout << "Immediately stopping network packet processing.\n";
 
+  if (perfectLinks)
+  {
+    perfectLinks->stop();
+  }
+
   // write/flush output file if necessary
   std::cout << "Writing output.\n";
-  logger->close_logger();
+  if (logger)
+  {
+    logger->close_logger();
+  }
 
   // exit directly from signal handler
   exit(0);
@@ -70,7 +79,6 @@ int main(int argc, char **argv)
   std::cout << "Path to output:\n";
   std::cout << "===============\n";
   std::cout << parser.outputPath() << "\n\n";
-  logger = std::make_shared<Logger>(parser.outputPath());
 
   std::cout << "Path to config:\n";
   std::cout << "===============\n";
@@ -89,17 +97,21 @@ int main(int argc, char **argv)
 
   size_t num_sender_threads;
   size_t num_receiver_threads;
+  size_t maxBufferSize;
   if (parser.id() == config.get_receiver_index())
   {
     num_sender_threads = 1;
     num_receiver_threads = 6;
+    maxBufferSize = 500000;
   }
   else
   {
     num_sender_threads = 6;
     num_receiver_threads = 1;
+    maxBufferSize = 5000;
   }
-  auto perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, num_sender_threads, num_receiver_threads, logger);
+  logger = std::make_shared<Logger>(parser.outputPath(), maxBufferSize);
+  perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, num_sender_threads, num_receiver_threads, logger);
 
   perfectLinks->start();
   if (config.get_receiver_index() != parser.id())
@@ -109,7 +121,7 @@ int main(int argc, char **argv)
     {
       std::string message = std::to_string(i);
       Message msg(parser.id(), message);
-      std::cout << "Sending message with ID: " << msg.get_msg_id() << " with content: " << msg.get_msg() << "\n";
+      // std::cout << "Sending message with ID: " << msg.get_msg_id() << " with content: " << msg.get_msg() << "\n";
       perfectLinks->send(hostMap[config.get_receiver_index()].ip, hostMap[config.get_receiver_index()].port, msg);
     }
   }

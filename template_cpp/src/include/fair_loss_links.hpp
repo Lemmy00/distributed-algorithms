@@ -24,6 +24,8 @@ public:
     size_t send(in_addr_t dest_addr, unsigned short dest_port, const char *buffer, const size_t buffer_size);
     size_t recv(char *buffer, const size_t buffer_size, char *src_addr, unsigned short *src_port);
     size_t recv(char *buffer, const size_t buffer_size, in_addr *src_addr, unsigned short *src_port);
+
+    void close_socket();
 };
 
 FairLossLinks::FairLossLinks(const char *ip_addr, unsigned short port)
@@ -71,6 +73,11 @@ FairLossLinks::FairLossLinks(in_addr_t ip_addr, unsigned short port)
 }
 
 FairLossLinks::~FairLossLinks()
+{
+    close_socket();
+}
+
+void FairLossLinks::close_socket()
 {
     close(socket_fd);
 }
