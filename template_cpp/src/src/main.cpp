@@ -14,6 +14,9 @@
 std::shared_ptr<Logger> logger;
 std::unique_ptr<PerfectLinks> perfectLinks;
 
+std::thread receiverThread;
+std::thread senderThread;
+
 static void stop(int)
 {
   // reset signal handlers to default
@@ -95,34 +98,34 @@ int main(int argc, char **argv)
 
   Parser::Host currentHost = hostMap[parser.id()];
 
-  size_t num_sender_threads;
-  size_t num_receiver_threads;
-  size_t maxBufferSize;
   if (parser.id() == config.get_receiver_index())
   {
-    num_sender_threads = 1;
-    num_receiver_threads = 6;
-    maxBufferSize = 500000;
+    logger = std::make_shared<Logger>(parser.outputPath(), 500000);
   }
   else
   {
-    num_sender_threads = 6;
-    num_receiver_threads = 1;
-    maxBufferSize = 10000;
+    logger = std::make_shared<Logger>(parser.outputPath(), 10000);
   }
-  logger = std::make_shared<Logger>(parser.outputPath(), maxBufferSize);
-  perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, num_sender_threads, num_receiver_threads, logger);
 
-  perfectLinks->start();
-  if (config.get_receiver_index() != parser.id())
+  perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, logger);
+
+  if (parser.id() == config.get_receiver_index())
   {
-    std::cout << "I am a sender.\n";
+    receiverThread = perfectLinks->startReciever();
+    receiverThread.detach();
+  }
+  else
+  {
+    receiverThread = perfectLinks->startReciever();
+    senderThread = perfectLinks->startSender();
+    receiverThread.detach();
+    senderThread.detach();
+
     for (unsigned long i = 1; i <= config.get_num_msgs(); i++)
     {
       std::string message = std::to_string(i);
-      Message msg(parser.id(), message);
-      // std::cout << "Sending message with ID: " << msg.get_msg_id() << " with content: " << msg.get_msg() << "\n";
-      perfectLinks->send(hostMap[config.get_receiver_index()].ip, hostMap[config.get_receiver_index()].port, msg);
+      Message msg(parser.id(), message, hostMap[config.get_receiver_index()].ip, hostMap[config.get_receiver_index()].port);
+      perfectLinks->send(msg);
     }
   }
 

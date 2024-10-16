@@ -70,9 +70,5 @@ private:
             }
             outputFile.flush();
         }
-        else
-        {
-            std::cerr << "Log file is not open." << std::endl;
-        }
     }
 };

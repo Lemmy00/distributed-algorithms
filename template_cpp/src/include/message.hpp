@@ -14,40 +14,31 @@ private:
     unsigned long sender_id;
     std::string msg;
     size_t msg_size;
+    in_addr_t dest_addr;
+    unsigned short dest_port;
     bool is_ack;
 
     static std::atomic<uint32_t> msg_counter;
 
 public:
-    Message(unsigned long sender_id, const char *msg, size_t msg_size)
-        : sender_id(sender_id), msg(msg, msg_size), msg_size(msg_size), is_ack(false)
+    Message(unsigned long sender_id, const std::string &msg, in_addr_t dest_addr, unsigned short dest_port)
+        : sender_id(sender_id), msg(msg), msg_size(msg.length()), dest_addr(dest_addr), dest_port(dest_port), is_ack(false)
     {
         msg_id = msg_counter++;
     }
 
-    Message(unsigned long sender_id, const std::string &msg)
-        : sender_id(sender_id), msg(msg), msg_size(msg.length()), is_ack(false)
-    {
-        msg_id = msg_counter++;
-    }
-
-    Message(uint32_t msg_id, unsigned long sender_id, const char *msg, size_t msg_size)
-        : msg_id(msg_id), sender_id(sender_id), msg(msg, msg_size), msg_size(msg_size), is_ack(false)
+    Message(uint32_t msg_id, unsigned long sender_id, const std::string &msg, in_addr_t dest_addr, unsigned short dest_port)
+        : msg_id(msg_id), sender_id(sender_id), msg(msg), msg_size(msg.length()), dest_addr(dest_addr), dest_port(dest_port), is_ack(false)
     {
     }
 
-    Message(uint32_t msg_id, unsigned long sender_id, const std::string &msg)
-        : msg_id(msg_id), sender_id(sender_id), msg(msg), msg_size(msg.length()), is_ack(false)
+    Message(uint32_t msg_id, unsigned long sender_id, const std::string &msg, in_addr_t dest_addr, unsigned short dest_port, bool is_ack)
+        : msg_id(msg_id), sender_id(sender_id), msg(msg), msg_size(msg.length()), dest_addr(dest_addr), dest_port(dest_port), is_ack(is_ack)
     {
     }
 
-    Message(uint32_t msg_id, unsigned long sender_id, const std::string &msg, bool is_ack)
-        : msg_id(msg_id), sender_id(sender_id), msg(msg), msg_size(msg.length()), is_ack(is_ack)
-    {
-    }
-
-    Message(uint32_t msg_id, unsigned long sender_id, bool is_ack)
-        : msg_id(msg_id), sender_id(sender_id), msg(""), msg_size(0), is_ack(is_ack)
+    Message(uint32_t msg_id, unsigned long sender_id, in_addr_t dest_addr, unsigned short dest_port)
+        : msg_id(msg_id), sender_id(sender_id), msg(""), msg_size(0), dest_addr(dest_addr), dest_port(dest_port), is_ack(true)
     {
     }
 
@@ -57,6 +48,8 @@ public:
     unsigned long get_sender_id() const { return sender_id; }
     const std::string &get_msg() const { return msg; }
     size_t get_msg_size() const { return msg_size; }
+    in_addr_t get_dest_addr() const { return dest_addr; }
+    unsigned short get_dest_port() const { return dest_port; }
     bool get_is_ack() const { return is_ack; }
 
     static char *serialize(const Message &message, size_t &buffer_size)
@@ -82,7 +75,7 @@ public:
         return buffer;
     }
 
-    static Message deserialize(const char *buffer, size_t received_size)
+    static Message deserialize(const char *buffer, size_t received_size, in_addr_t dest_addr, unsigned short dest_port)
     {
         size_t offset = 0;
 
@@ -107,7 +100,7 @@ public:
             throw std::runtime_error("Deserialization error: received buffer size is smaller than expected message size.");
         }
 
-        return Message(msg_id, sender_id, std::string(buffer + offset, msg_size), is_ack);
+        return Message(msg_id, sender_id, std::string(buffer + offset, msg_size), dest_addr, dest_port, is_ack);
     }
 };
 
