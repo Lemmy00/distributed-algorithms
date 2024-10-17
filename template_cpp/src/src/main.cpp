@@ -8,6 +8,7 @@
 #include "hello.h"
 #include "perfect_links.hpp"
 #include "message.hpp"
+#include "message_batch.hpp"
 #include "config.hpp"
 #include "logger.hpp"
 #include <signal.h>
@@ -102,14 +103,14 @@ int main(int argc, char **argv)
 
   if (parser.id() == config.get_receiver_index())
   {
-    logger = std::make_shared<Logger>(parser.outputPath(), 10000000);
+    logger = std::make_shared<Logger>(parser.outputPath(), 3000000);
   }
   else
   {
-    logger = std::make_shared<Logger>(parser.outputPath(), 1000000);
+    logger = std::make_shared<Logger>(parser.outputPath(), 50000);
   }
 
-  perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, logger, 1000000);
+  perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, logger, 50000);
 
   if (parser.id() == config.get_receiver_index())
   {
@@ -126,11 +127,22 @@ int main(int argc, char **argv)
     receiverThread.detach();
     senderThread.detach();
 
-    for (unsigned long i = 1; i <= config.get_num_msgs(); i++)
+    for (unsigned long i = 1; i <= config.get_num_msgs(); i += 8)
     {
-      std::string message = std::to_string(i);
-      Message msg(parser.id(), message, hostMap[config.get_receiver_index()].ip, hostMap[config.get_receiver_index()].port);
-      perfectLinks->send(msg);
+      MessageBatch batch(hostMap[config.get_receiver_index()].ip, hostMap[config.get_receiver_index()].port);
+      for (unsigned long j = i; j < i + 8; j++)
+      {
+        if (j > config.get_num_msgs())
+        {
+          break;
+        }
+
+        std::string message = std::to_string(j);
+        Message msg(parser.id(), message);
+        batch.add_message(msg);
+      }
+
+      perfectLinks->send(batch);
     }
   }
 
