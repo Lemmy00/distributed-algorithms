@@ -53,7 +53,7 @@ public:
 private:
     void sendWorker();
     void receiverWorker();
-    void sendAck(Message &ack_msg);
+    void sendAck(const Message &ack_msg);
 };
 
 PerfectLinks::PerfectLinks(in_addr_t ip, unsigned short port, std::shared_ptr<Logger> loggerInstance, size_t queueSize)
@@ -181,7 +181,7 @@ void PerfectLinks::receiverWorker()
     }
 }
 
-void PerfectLinks::sendAck(Message &ack_msg)
+void PerfectLinks::sendAck(const Message &ack_msg)
 {
     size_t buffer_size;
     std::unique_ptr<char[]> buffer(Message::serialize(ack_msg, buffer_size));
