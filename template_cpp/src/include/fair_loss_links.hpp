@@ -60,7 +60,7 @@ in_addr_t FairLossLinks::get_ip() const
 
 unsigned short FairLossLinks::get_port() const
 {
-    return ntohs(servaddr.sin_port);
+    return servaddr.sin_port;
 }
 
 size_t FairLossLinks::send(in_addr_t dest_addr, unsigned short dest_port, const char *buffer, const size_t buffer_size)

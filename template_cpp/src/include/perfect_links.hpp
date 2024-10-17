@@ -125,6 +125,7 @@ void PerfectLinks::sendWorker()
                 continue;
             }
         }
+        // std::cout << "Sending message with ID: " << msg.get_msg_id() << " with content: " << msg.get_msg() << "\n";
 
         size_t buffer_size;
         std::unique_ptr<char[]> buffer(Message::serialize(msg, buffer_size));
