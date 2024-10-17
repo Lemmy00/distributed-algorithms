@@ -103,14 +103,14 @@ int main(int argc, char **argv)
 
   if (parser.id() == config.get_receiver_index())
   {
-    logger = std::make_shared<Logger>(parser.outputPath(), 3000000);
+    logger = std::make_shared<Logger>(parser.outputPath(), 5000000);
   }
   else
   {
-    logger = std::make_shared<Logger>(parser.outputPath(), 50000);
+    logger = std::make_shared<Logger>(parser.outputPath(), 16000);
   }
 
-  perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, logger, 50000);
+  perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, logger, 55000);
 
   if (parser.id() == config.get_receiver_index())
   {
