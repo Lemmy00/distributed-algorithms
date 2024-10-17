@@ -2,6 +2,7 @@
 #include <iostream>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 #include "parser.hpp"
 #include "hello.h"
@@ -14,6 +15,7 @@
 std::shared_ptr<Logger> logger;
 std::unique_ptr<PerfectLinks> perfectLinks;
 
+std::vector<std::thread> receiverThreads;
 std::thread receiverThread;
 std::thread senderThread;
 
@@ -111,8 +113,11 @@ int main(int argc, char **argv)
 
   if (parser.id() == config.get_receiver_index())
   {
-    receiverThread = perfectLinks->startReciever();
-    receiverThread.detach();
+    receiverThreads = perfectLinks->startReceivers(7);
+    for (size_t i = 0; i < 7; i++)
+    {
+      receiverThreads[i].detach();
+    }
   }
   else
   {

@@ -45,6 +45,7 @@ public:
 
     void send(const Message &msg);
 
+    std::vector<std::thread> startReceivers(size_t n);
     std::thread startReciever();
     std::thread startSender();
     void stop();
@@ -61,6 +62,16 @@ PerfectLinks::PerfectLinks(in_addr_t ip, unsigned short port, std::shared_ptr<Lo
 PerfectLinks::~PerfectLinks()
 {
     stop();
+}
+
+std::vector<std::thread> PerfectLinks::startReceivers(size_t n)
+{
+    std::vector<std::thread> threads;
+    for (size_t i = 0; i < n; ++i)
+    {
+        threads.emplace_back(&PerfectLinks::receiverWorker, this);
+    }
+    return threads;
 }
 
 std::thread PerfectLinks::startReciever()
@@ -91,7 +102,6 @@ void PerfectLinks::send(const Message &msg)
 
     while (messageQueue.full())
     {
-        std::this_thread::yield();
     }
 
     messageQueue.push(msg);
@@ -108,7 +118,6 @@ void PerfectLinks::sendWorker()
         }
 
         Message msg = msgOpt.value();
-
         {
             std::lock_guard<std::mutex> lock(ackedMessagesMutex);
             if (ackedMessages.find(msg.get_msg_id()) != ackedMessages.end())
