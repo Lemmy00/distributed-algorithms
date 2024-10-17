@@ -208,11 +208,14 @@ class StressTest:
                     info.handle.send_signal(ProcessInfo.stateToSignal(op))
                     info.state = op
                     successfulAttempts += 1
-                    print(
-                        "Sending {} to process {}".format(
-                            ProcessInfo.stateToSignalStr(op), proc
+                    if op == ProcessState.TERMINATED:
+                        print("Process {} terminated".format(proc))
+                    else:
+                        print(
+                            "Sending {} to process {}".format(
+                                ProcessInfo.stateToSignalStr(op), proc
+                            )
                         )
-                    )
 
                     # if op == ProcessState.TERMINATED and proc not in terminatedProcs:
                     #     if len(terminatedProcs) < maxTerminatedProcesses:
@@ -493,9 +496,9 @@ if __name__ == "__main__":
         "concurrency": 8,  # How many threads are interferring with the running processes
         "attempts": 8,  # How many interferring attempts each threads does
         "attemptsDistribution": {  # Probability with which an interferring thread will
-            "STOP": 0.48,  # select an interferring action (make sure they add up to 1)
-            "CONT": 0.48,
-            "TERM": 0.04,
+            "STOP": 0.45,  # select an interferring action (make sure they add up to 1)
+            "CONT": 0.45,
+            "TERM": 0.10,
         },
     }
 
