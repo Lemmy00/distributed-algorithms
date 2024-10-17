@@ -40,7 +40,7 @@ private:
     std::shared_ptr<Logger> logger;
 
 public:
-    PerfectLinks(in_addr_t ip, unsigned short port, std::shared_ptr<Logger> loggerInstance, size_t queueSize = 50000);
+    PerfectLinks(in_addr_t ip, unsigned short port, std::shared_ptr<Logger> loggerInstance, size_t queueSize = 100000);
     ~PerfectLinks();
 
     void send(const Message &msg);
@@ -48,7 +48,6 @@ public:
     std::thread startReciever();
     std::thread startSender();
     void stop();
-    void shutdown();
 
 private:
     void sendWorker();
@@ -61,7 +60,7 @@ PerfectLinks::PerfectLinks(in_addr_t ip, unsigned short port, std::shared_ptr<Lo
 
 PerfectLinks::~PerfectLinks()
 {
-    shutdown();
+    stop();
 }
 
 std::thread PerfectLinks::startReciever()
@@ -77,16 +76,7 @@ std::thread PerfectLinks::startSender()
 void PerfectLinks::stop()
 {
     stopThreads = true;
-}
-
-void PerfectLinks::shutdown()
-{
-    stop();
-
-    while (!messageQueue.is_empty())
-    {
-        messageQueue.pop();
-    }
+    messageQueue.shutdown();
 }
 
 void PerfectLinks::send(const Message &msg)
@@ -96,12 +86,13 @@ void PerfectLinks::send(const Message &msg)
         return;
     }
 
-    while (messageQueue.is_full())
-    {
-    }
-
     // std::cout << "Sending message with ID: " << msg.get_msg_id() << " with content: " << msg.get_msg() << "\n";
     logger->log("b " + msg.get_msg());
+
+    while (messageQueue.full())
+    {
+        std::this_thread::yield();
+    }
 
     messageQueue.push(msg);
 }
@@ -110,7 +101,13 @@ void PerfectLinks::sendWorker()
 {
     while (!stopThreads)
     {
-        Message msg = messageQueue.pop();
+        auto msgOpt = messageQueue.pop();
+        if (!msgOpt.has_value())
+        {
+            continue;
+        }
+
+        Message msg = msgOpt.value();
 
         {
             std::lock_guard<std::mutex> lock(ackedMessagesMutex);
@@ -122,11 +119,6 @@ void PerfectLinks::sendWorker()
 
         size_t buffer_size;
         std::unique_ptr<char[]> buffer(Message::serialize(msg, buffer_size));
-
-        if (stopThreads)
-        {
-            break;
-        }
 
         fairLossLinks.send(msg.get_dest_addr(), msg.get_dest_port(), buffer.get(), buffer_size);
         messageQueue.push(msg);
@@ -151,6 +143,7 @@ void PerfectLinks::receiverWorker()
             {
                 std::lock_guard<std::mutex> lock(ackedMessagesMutex);
                 ackedMessages.insert(msg.get_msg_id());
+                // std::cout << "Received ACK for message with ID: " << msg.get_msg_id() << "\n";
                 continue;
             }
 
@@ -182,11 +175,6 @@ void PerfectLinks::sendAck(Message &ack_msg)
 {
     size_t buffer_size;
     std::unique_ptr<char[]> buffer(Message::serialize(ack_msg, buffer_size));
-
-    if (stopThreads)
-    {
-        return;
-    }
 
     fairLossLinks.send(ack_msg.get_dest_addr(), ack_msg.get_dest_port(), buffer.get(), buffer_size);
 }

@@ -35,7 +35,7 @@ static void stop(int)
   std::cout << "Writing output.\n";
   if (logger)
   {
-    logger->close_logger();
+    logger->close();
   }
 
   // exit directly from signal handler
@@ -100,14 +100,14 @@ int main(int argc, char **argv)
 
   if (parser.id() == config.get_receiver_index())
   {
-    logger = std::make_shared<Logger>(parser.outputPath(), 500000);
+    logger = std::make_shared<Logger>(parser.outputPath(), 10000000);
   }
   else
   {
-    logger = std::make_shared<Logger>(parser.outputPath(), 10000);
+    logger = std::make_shared<Logger>(parser.outputPath(), 1000000);
   }
 
-  perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, logger);
+  perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, logger, 1000000);
 
   if (parser.id() == config.get_receiver_index())
   {

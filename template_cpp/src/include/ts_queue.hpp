@@ -7,6 +7,8 @@
 #include <mutex>
 #include <queue>
 #include <atomic>
+#include <optional>
+#include <csignal>
 
 template <typename T>
 class TSQueue
@@ -17,22 +19,29 @@ private:
     std::mutex m_mutex;
     std::condition_variable m_cond;
     size_t m_capacity;
+    std::atomic<bool> m_shutdown{false};
 
 public:
-    TSQueue(size_t capacity = 50000) : m_capacity(capacity) {}
+    TSQueue(size_t capacity = 100000) : m_capacity(capacity) {}
 
-    bool is_full() const
+    void shutdown()
+    {
+        m_shutdown.store(true);
+        m_cond.notify_all();
+    }
+
+    bool full() const
     {
         return m_size.load() >= m_capacity;
     }
 
-    bool is_empty() const
-    {
-        return m_size.load() == 0;
-    }
-
     void push(T item)
     {
+        if (m_shutdown.load())
+        {
+            return;
+        }
+
         std::unique_lock<std::mutex> lock(m_mutex);
 
         m_queue.push(std::move(item));
@@ -41,17 +50,20 @@ public:
         m_cond.notify_one();
     }
 
-    T pop()
+    std::optional<T> pop()
     {
         std::unique_lock<std::mutex> lock(m_mutex);
-        m_cond.wait(lock,
-                    [this]()
-                    { return m_size.load() > 0; });
+        m_cond.wait(lock, [this]()
+                    { return m_shutdown.load() || m_size.load() > 0; });
+
+        if (m_shutdown.load() && m_size.load() == 0)
+        {
+            return std::nullopt;
+        }
 
         T item = std::move(m_queue.front());
         m_queue.pop();
         --m_size;
-        lock.unlock();
 
         m_cond.notify_one();
 

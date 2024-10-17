@@ -17,7 +17,7 @@ private:
     const size_t maxBufferSize;
 
 public:
-    Logger(const std::string &outputPath, size_t bufferSize = 5000)
+    Logger(const std::string &outputPath, size_t bufferSize = 5000000)
         : maxBufferSize(bufferSize)
     {
         outputFile.open(outputPath, std::ios::out | std::ios::app);
@@ -29,7 +29,7 @@ public:
 
     ~Logger()
     {
-        close_logger();
+        close();
     }
 
     void log(const std::string &entry)
@@ -43,7 +43,7 @@ public:
         }
     }
 
-    void close_logger()
+    void close()
     {
         flush();
         if (outputFile.is_open())
@@ -65,7 +65,7 @@ private:
         {
             while (!logBuffer.empty())
             {
-                outputFile << logBuffer.front() << std::endl;
+                outputFile << logBuffer.front() << "\n";
                 logBuffer.pop();
             }
             outputFile.flush();
