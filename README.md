@@ -18,6 +18,9 @@ For instructions and details, please refer to the project description.
 
 ./run.sh --id 3 --hosts ../example/hosts --output ../example/output/3.output ../example/configs/perfect-links.config
 
+timeout 1s ./run.sh --id 1 --hosts ../example/hosts --output ../example/output/1.output ../example/configs/perfect-links.config
+
+
 sudo ./stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 128 -m 10000000
 sudo ./stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 30 -m 200000
 sudo ./stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 10 -m 10000
