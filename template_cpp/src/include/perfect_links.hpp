@@ -31,11 +31,9 @@ class PerfectLinks
 private:
     FairLossLinks fairLossLinks;
     std::unordered_map<unsigned long, std::unordered_set<uint32_t>> receivedMessages;
-    std::unordered_set<uint32_t> deliveredMessages;
     std::unordered_set<uint32_t> ackedMessages;
     std::mutex ackedMessagesMutex;
     std::mutex receivedMessagesMutex;
-    std::mutex deliveredMessagesMutex;
 
     TSQueue<MessageBatch> messageQueue;
     std::atomic<bool> stopThreads{false};
@@ -135,19 +133,6 @@ void PerfectLinks::sendWorker()
             }
         }
 
-        {
-            /*std::lock_guard<std::mutex> lock(deliveredMessagesMutex);
-            if (deliveredMessages.find(front.get_msg_id()) == deliveredMessages.end())
-            {
-                for (const auto &message : msgBatch.get_messages())
-                {
-                    logger->log("b " + message.get_msg());
-                }
-                deliveredMessages.insert(front.get_msg_id());
-            }*/
-            // std::cout << "Re-Sending message with ID: " << msgBatch.get_messages().front().get_msg_id() << " with content: " << msgBatch.get_messages().front().get_msg() << "\n";
-        }
-
         size_t buffer_size;
         std::unique_ptr<char[]> buffer(MessageBatch::serialize(msgBatch, buffer_size));
 
@@ -209,6 +194,11 @@ void PerfectLinks::receiverWorker()
                 }
 
                 receivedMessages[front.get_sender_id()].insert(front.get_msg_id());
+            }
+
+            if (stopThreads)
+            {
+                break;
             }
 
             for (const auto &msg : msgBatch.get_messages())
