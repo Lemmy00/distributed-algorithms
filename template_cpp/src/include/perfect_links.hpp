@@ -49,7 +49,7 @@ public:
     void send(const MessageBatch &msg);
 
     std::vector<std::thread> startReceivers(size_t n);
-    std::thread startReciever();
+    std::thread startReceiver();
     std::thread startSender();
     void stop();
 
@@ -77,7 +77,7 @@ std::vector<std::thread> PerfectLinks::startReceivers(size_t n)
     return threads;
 }
 
-std::thread PerfectLinks::startReciever()
+std::thread PerfectLinks::startReceiver()
 {
     return std::thread(&PerfectLinks::receiverWorker, this);
 }
@@ -104,10 +104,10 @@ void PerfectLinks::send(const MessageBatch &msgBatch)
     {
     }
 
-    /*for (const auto &message : msgBatch.get_messages())
+    for (const auto &message : msgBatch.get_messages())
     {
         logger->log("b " + message.get_msg());
-    }*/
+    }
 
     // std::cout << "Sending message with ID: " << msgBatch.get_messages().front().get_msg_id() << " with content: " << msgBatch.get_messages().front().get_msg() << "\n";
     messageQueue.push(msgBatch);
@@ -123,19 +123,20 @@ void PerfectLinks::sendWorker()
             continue;
         }
 
-        MessageBatch msgBatch = msgBatchOpt.value();
+        const MessageBatch &msgBatch = msgBatchOpt.value();
         Message front = msgBatch.get_messages().front();
 
         {
             std::lock_guard<std::mutex> lock(ackedMessagesMutex);
             if (ackedMessages.find(front.get_msg_id()) != ackedMessages.end())
             {
+                ackedMessages.erase(front.get_msg_id());
                 continue;
             }
         }
 
         {
-            std::lock_guard<std::mutex> lock(deliveredMessagesMutex);
+            /*std::lock_guard<std::mutex> lock(deliveredMessagesMutex);
             if (deliveredMessages.find(front.get_msg_id()) == deliveredMessages.end())
             {
                 for (const auto &message : msgBatch.get_messages())
@@ -143,7 +144,7 @@ void PerfectLinks::sendWorker()
                     logger->log("b " + message.get_msg());
                 }
                 deliveredMessages.insert(front.get_msg_id());
-            }
+            }*/
             // std::cout << "Re-Sending message with ID: " << msgBatch.get_messages().front().get_msg_id() << " with content: " << msgBatch.get_messages().front().get_msg() << "\n";
         }
 
@@ -165,6 +166,11 @@ void PerfectLinks::receiverWorker()
         char buffer[BUFFER_SIZE];
         size_t buffer_size = BUFFER_SIZE;
         size_t recv_size = fairLossLinks.recv(buffer, buffer_size, &src_addr, &src_port);
+
+        if (stopThreads)
+        {
+            break;
+        }
 
         if (recv_size > 0)
         {

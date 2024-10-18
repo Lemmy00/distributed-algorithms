@@ -122,7 +122,7 @@ int main(int argc, char **argv)
   }
   else
   {
-    receiverThread = perfectLinks->startReciever();
+    receiverThread = perfectLinks->startReceiver();
     senderThread = perfectLinks->startSender();
     receiverThread.detach();
     senderThread.detach();
