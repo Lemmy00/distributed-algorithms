@@ -16,13 +16,13 @@ def count_lines_in_stdout_files(directory):
                 lines = file.readlines()
                 
                 line_count = 0
-                for line in lines:
+                for i, line in enumerate(lines, 1):
                     line = line.strip()
                     if pattern_b.match(line) or pattern_d.match(line):
                         lines_set.add(line)
                         line_count += 1
                     else:
-                        print(f"Invalid line format in {filename}: {line}")
+                        print(f"Invalid line format in {filename} line number {i}: {line}")
                 
                 assert line_count == len(lines_set), f"Duplicate lines in {filename}, line count: {line_count}, unique lines: {len(lines_set)}"
                 
