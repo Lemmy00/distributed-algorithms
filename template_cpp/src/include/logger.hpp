@@ -6,14 +6,22 @@
 #include <mutex>
 #include <queue>
 #include <atomic>
+#include <thread>
 #include <chrono>
+#include <future>
 
 class Logger
 {
 private:
     std::ofstream outputFile;
-    std::queue<std::string> logBuffer;
-    std::mutex bufferMutex;
+
+    std::atomic<bool> useA{true};
+    std::queue<std::string> logBufferA;
+    std::queue<std::string> logBufferB;
+    std::mutex bufferMutexA;
+    std::mutex bufferMutexB;
+    std::mutex flushMutex;
+
     const size_t maxBufferSize;
 
 public:
@@ -34,12 +42,27 @@ public:
 
     void log(const std::string &entry)
     {
-        std::lock_guard<std::mutex> lock(bufferMutex);
-        logBuffer.push(entry);
-
-        if (logBuffer.size() >= maxBufferSize)
+        if (useA.load())
         {
-            flush_locked();
+            std::lock_guard<std::mutex> lock(bufferMutexA);
+            logBufferA.push(entry);
+
+            if (logBufferA.size() >= maxBufferSize)
+            {
+                useA.store(false);
+                flush_lockedA();
+            }
+        }
+        else
+        {
+            std::lock_guard<std::mutex> lock(bufferMutexB);
+            logBufferB.push(entry);
+
+            if (logBufferB.size() >= maxBufferSize)
+            {
+                useA.store(true);
+                flush_lockedB();
+            }
         }
     }
 
@@ -54,19 +77,52 @@ public:
 
     void flush()
     {
-        std::lock_guard<std::mutex> lock(bufferMutex);
-        flush_locked();
+        if (useA.load())
+        {
+            flushA();
+        }
+        else
+        {
+            flushB();
+        }
+    }
+
+    void flushA()
+    {
+        std::lock_guard<std::mutex> lock(bufferMutexA);
+        flush_lockedA();
+    }
+
+    void flushB()
+    {
+        std::lock_guard<std::mutex> lock(bufferMutexB);
+        flush_lockedB();
     }
 
 private:
-    void flush_locked()
+    void flush_lockedA()
     {
+        std::lock_guard<std::mutex> flushLock(flushMutex);
         if (outputFile.is_open())
         {
-            while (!logBuffer.empty())
+            while (!logBufferA.empty())
             {
-                outputFile << logBuffer.front() << "\n";
-                logBuffer.pop();
+                outputFile << logBufferA.front() << "\n";
+                logBufferA.pop();
+            }
+            outputFile.flush();
+        }
+    }
+
+    void flush_lockedB()
+    {
+        std::lock_guard<std::mutex> flushLock(flushMutex);
+        if (outputFile.is_open())
+        {
+            while (!logBufferB.empty())
+            {
+                outputFile << logBufferB.front() << "\n";
+                logBufferB.pop();
             }
             outputFile.flush();
         }
