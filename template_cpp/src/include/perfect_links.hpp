@@ -104,10 +104,6 @@ void PerfectLinks::send(const MessageBatch &msgBatch)
 
     for (const auto &message : msgBatch.get_messages())
     {
-        if (stopThreads)
-        {
-            return;
-        }
         logger->log("b " + message.get_msg());
     }
 
@@ -173,13 +169,13 @@ void PerfectLinks::receiverWorker()
             if (front.get_is_ack())
             {
                 std::lock_guard<std::mutex> lock(ackedMessagesMutex);
-                for (const auto &msg : msgBatch.get_messages())
+                /*for (const auto &msg : msgBatch.get_messages())
                 {
                     if (!msg.get_is_ack())
                     {
                         std::runtime_error("Received a message in an ACK batch");
                     }
-                }
+                }*/
                 // std::cout << "Received ACK for message with ID: " << front.get_msg_id() << "\n";
                 ackedMessages.insert(front.get_msg_id());
                 continue;
