@@ -104,6 +104,10 @@ void PerfectLinks::send(const MessageBatch &msgBatch)
 
     for (const auto &message : msgBatch.get_messages())
     {
+        if (stopThreads)
+        {
+            return;
+        }
         logger->log("b " + message.get_msg());
     }
 
