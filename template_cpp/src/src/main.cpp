@@ -19,6 +19,7 @@ std::unique_ptr<PerfectLinks> perfectLinks;
 std::vector<std::thread> receiverThreads;
 std::thread receiverThread;
 std::thread senderThread;
+std::thread sendingThread;
 
 static void stop(int)
 {
@@ -127,23 +128,32 @@ int main(int argc, char **argv)
     receiverThread.detach();
     senderThread.detach();
 
-    for (unsigned long i = 1; i <= config.get_num_msgs(); i += 8)
-    {
-      MessageBatch batch(hostMap[config.get_receiver_index()].ip, hostMap[config.get_receiver_index()].port);
-      for (unsigned long j = i; j < i + 8; j++)
+    sendingThread = std::thread([&]()
+                                {
+      for (unsigned long i = 1; i <= config.get_num_msgs(); i += 8)
       {
-        if (j > config.get_num_msgs())
+        MessageBatch batch(hostMap[config.get_receiver_index()].ip, hostMap[config.get_receiver_index()].port);
+        for (unsigned long j = i; j < i + 8; j++)
+        {
+          if (j > config.get_num_msgs())
+          {
+            break;
+          }
+
+          std::string message = std::to_string(j);
+          Message msg(parser.id(), message);
+          batch.add_message(msg);
+        }
+
+        if (perfectLinks->get_stop_threads())
         {
           break;
         }
 
-        std::string message = std::to_string(j);
-        Message msg(parser.id(), message);
-        batch.add_message(msg);
-      }
+        perfectLinks->send(batch);
+      } });
 
-      perfectLinks->send(batch);
-    }
+    sendingThread.detach();
   }
 
   std::cout << "Waiting for messages...\n";

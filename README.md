@@ -21,16 +21,15 @@ For instructions and details, please refer to the project description.
 timeout 1s ./run.sh --id 1 --hosts ../example/hosts --output ../example/output/1.output ../example/configs/perfect-links.config
 
 
-sudo ./stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 128 -m 10000000
-sudo ./stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 30 -m 200000
-sudo ./stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 10 -m 10000
+sudo python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 128 -m 10000000
+sudo python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 30 -m 500000
+sudo python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 10 -m 10000
+
+sudo python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 5 -m 10000000
+sudo python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 30 -m 1000000
 
 ```
 
 TODO:
 
-- Ensure usage of references and const for complex types
-- General code improvements
-- Verify that BUFFER SIZE IS OK
-- Very stopping is OK
-- Defining of when the message is sent
+- Can u use swap memory?

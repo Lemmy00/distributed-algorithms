@@ -47,9 +47,12 @@ public:
     void send(const MessageBatch &msg);
 
     std::vector<std::thread> startReceivers(size_t n);
-    std::thread startReceiver();
     std::thread startSender();
+    std::thread startReceiver();
+
     void stop();
+
+    std::atomic<bool> &get_stop_threads() { return stopThreads; }
 
 private:
     void sendWorker();
