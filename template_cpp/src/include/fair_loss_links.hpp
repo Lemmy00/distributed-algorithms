@@ -37,7 +37,7 @@ FairLossLinks::FairLossLinks(in_addr_t ip_addr, unsigned short port)
     memset(&servaddr, 0, sizeof(servaddr));
 
     servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(port);
+    servaddr.sin_port = port;
     servaddr.sin_addr.s_addr = ip_addr;
 
     if (bind(socket_fd, reinterpret_cast<const struct sockaddr *>(&servaddr), sizeof(servaddr)) < 0)
@@ -69,7 +69,7 @@ size_t FairLossLinks::send(in_addr_t dest_addr, unsigned short dest_port, const 
     memset(&destaddr, 0, sizeof(destaddr));
 
     destaddr.sin_family = AF_INET;
-    destaddr.sin_port = htons(dest_port);
+    destaddr.sin_port = dest_port;
     destaddr.sin_addr.s_addr = dest_addr;
 
     ssize_t sent_bytes = sendto(socket_fd, buffer, buffer_size, 0, reinterpret_cast<const struct sockaddr *>(&destaddr), sizeof(destaddr));
@@ -91,7 +91,7 @@ size_t FairLossLinks::recv(char *buffer, const size_t buffer_size, in_addr *src_
         perror("recvfrom failed");
     }
 
-    *src_port = ntohs(srcaddr.sin_port);
+    *src_port = srcaddr.sin_port;
     *src_addr = srcaddr.sin_addr;
 
     return n;
