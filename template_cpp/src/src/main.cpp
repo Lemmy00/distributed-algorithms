@@ -111,7 +111,7 @@ int main(int argc, char **argv)
     logger = std::make_shared<Logger>(parser.outputPath(), 16000);
   }
 
-  perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, logger, 50000);
+  perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, logger, 45000);
 
   if (parser.id() == config.get_receiver_index())
   {

@@ -20,16 +20,14 @@ For instructions and details, please refer to the project description.
 
 timeout 1s ./run.sh --id 1 --hosts ../example/hosts --output ../example/output/1.output ../example/configs/perfect-links.config
 
+timeout 120s ./run.sh --id 1 --hosts ../example/hosts --output ../example/output/1.output ../example/configs/perfect-links.config
 
-sudo python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 128 -m 10000000
-sudo python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 30 -m 500000
-sudo python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 10 -m 10000
 
-sudo python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 5 -m 10000000
-sudo python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 30 -m 1000000
+python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 128 -m 10000000
+python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 30 -m 500000
+python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 10 -m 10000
+
+python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 5 -m 10000000
+python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 30 -m 1000000
 
 ```
-
-TODO:
-
-- Can u use swap memory?

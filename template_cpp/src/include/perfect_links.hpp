@@ -111,6 +111,10 @@ void PerfectLinks::send(const MessageBatch &msgBatch)
     }
 
     // std::cout << "Sending message with ID: " << msgBatch.get_messages().front().get_msg_id() << " with content: " << msgBatch.get_messages().front().get_msg() << "\n";
+    size_t buffer_size;
+    std::unique_ptr<char[]> buffer(MessageBatch::serialize(msgBatch, buffer_size));
+
+    fairLossLinks.send(msgBatch.get_dest_addr(), msgBatch.get_dest_port(), buffer.get(), buffer_size);
     messageQueue.push(msgBatch);
 }
 
