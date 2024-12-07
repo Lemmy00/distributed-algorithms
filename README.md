@@ -12,22 +12,25 @@ For instructions and details, please refer to the project description.
 
 ## Perfect Links commands
 ```
-./run.sh --id 1 --hosts ../example/hosts --output ../example/output/1.output ../example/configs/perfect-links.config
+./run.sh --id 1 --hosts ../example/hosts --output ../example/output/proc01.output ../example/configs/fifo-broadcast.config
 
-./run.sh --id 2 --hosts ../example/hosts --output ../example/output/2.output ../example/configs/perfect-links.config
+./run.sh --id 2 --hosts ../example/hosts --output ../example/output/proc02.output ../example/configs/fifo-broadcast.config
 
-./run.sh --id 3 --hosts ../example/hosts --output ../example/output/3.output ../example/configs/perfect-links.config
+./run.sh --id 3 --hosts ../example/hosts --output ../example/output/proc03.output ../example/configs/fifo-broadcast.config
 
 timeout 1s ./run.sh --id 1 --hosts ../example/hosts --output ../example/output/1.output ../example/configs/perfect-links.config
 
 timeout 120s ./run.sh --id 1 --hosts ../example/hosts --output ../example/output/1.output ../example/configs/perfect-links.config
 
 
-python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 128 -m 10000000
-python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 30 -m 500000
-python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 10 -m 10000
+python3 stress.py fifo -r ../template_cpp/run.sh -l ../example/output/stress -p 128 -m 10000000
+python3 stress.py fifo -r ../template_cpp/run.sh -l ../example/output/stress -p 30 -m 500000
+python3 stress.py fifo -r ../template_cpp/run.sh -l ../example/output/stress -p 10 -m 10000
 
-python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 5 -m 10000000
-python3 stress.py perfect -r ../template_cpp/run.sh -l ../example/output/stress -p 30 -m 1000000
+python3 stress.py fifo -r ../template_cpp/run.sh -l ../example/output/stress -p 5 -m 10000000
+python3 stress.py fifo -r ../template_cpp/run.sh -l ../example/output/stress -p 30 -m 1000000
+
+python3 stress.py fifo -r ../template_cpp/run.sh -l ../example/output/stress -p 7 -m 2000
+
 
 ```

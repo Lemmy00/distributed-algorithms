@@ -127,27 +127,27 @@ void UniformReliableBroadcast::handleDeliver(const MessageBatch &msgBatch, const
     {
         std::lock_guard<std::mutex> lock(messageAcknowledgementsMutex);
         messageAcknowledgements[batch_key].insert(process_id);
-        std::cout << "Acked: " << batch_key.first
+        /*std::cout << "Acked: " << batch_key.first
                   << " " << batch_key.second
                   << ", content: " << msgBatch.get_messages().front().get_msg()
                   << ", from process: " << process_id
-                  << ", #acknowledgements: " << messageAcknowledgements[batch_key].size() << "\n";
+                  << ", #acknowledgements: " << messageAcknowledgements[batch_key].size() << "\n";*/
     }
     if (isNotPending(batch_key))
     {
-        std::cout << "Forwarded: " << batch_key.first
+        /*std::cout << "Forwarded: " << batch_key.first
                   << " " << batch_key.second
                   << ", content: " << msgBatch.get_messages().front().get_msg()
-                  << ", from process: " << process_id << "\n";
+                  << ", from process: " << process_id << "\n";*/
         bestEffortBroadcast.broadcast(batch_key, msgBatch.get_messages_str());
     }
 
     if (canDeliver(batch_key) && isNotDelivered(batch_key))
     {
-        std::cout << "Delivered: " << batch_key.first
+        /*std::cout << "Delivered: " << batch_key.first
                   << " " << batch_key.second
                   << ", content: " << msgBatch.get_messages().front().get_msg()
-                  << ", from process: " << process_id << "\n";
+                  << ", from process: " << process_id << "\n";*/
         deliverCallback(msgBatch);
     }
 }

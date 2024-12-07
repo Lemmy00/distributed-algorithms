@@ -176,6 +176,7 @@ class StressTest:
             else (self.processes - 1) // 2
         )
         self.terminatedProcs = AtomicSaturatedCounter(maxTerminatedProcesses)
+        self.setOfTerminatedProcs = set()
 
     def stress(self):
         selectProc = list(range(1, self.processes + 1))
@@ -209,6 +210,7 @@ class StressTest:
                     info.state = op
                     successfulAttempts += 1
                     if op == ProcessState.TERMINATED:
+                        self.setOfTerminatedProcs.add(proc)
                         print("Process {} terminated".format(proc))
                     else:
                         print(
@@ -411,6 +413,8 @@ def main(parser_results, testConfig):
         [p.join() for p in monitors]
 
     finally:
+        for p in st.setOfTerminatedProcs:
+            print("Process {} was terminated".format(p))
         if procs is not None:
             for _, p in procs:
                 p.kill()

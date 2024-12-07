@@ -78,23 +78,7 @@ FIFOReliableBroadcast::~FIFOReliableBroadcast()
 void FIFOReliableBroadcast::stop()
 {
     uniformReliableBroadcast.stop();
-    for (const auto &process : processes)
-    {
-        std::shared_ptr<std::mutex> lockPtr = pendingMessagesLocks[process.first];
-        std::lock_guard<std::mutex> lock(*lockPtr);
-        if (pendingMessages[process.first].empty())
-        {
-            continue;
-        }
-
-        std::cout << "----------------------------------\n";
-        std::cout << "Pending messages for process " << process.first << ":\n";
-        for (const auto &msgBatch : pendingMessages[process.first])
-        {
-            std::cout << "  Sequence number: " << msgBatch.get_sender_id() << " " << msgBatch.get_seq_num() << ", content: " << msgBatch.get_messages().front().get_msg() << "\n";
-        }
-        std::cout << "----------------------------------\n";
-    }
+    cv.notify_all();
 }
 
 void FIFOReliableBroadcast::startBroadcaster(size_t numReceivers)
@@ -105,23 +89,11 @@ void FIFOReliableBroadcast::startBroadcaster(size_t numReceivers)
 void FIFOReliableBroadcast::broadcast(const std::vector<std::string> &msgs)
 {
     {
-        unsigned long process_id = sender_id;
-        uint32_t min_seq_num = nextSequenceNumber[sender_id];
-        for (const auto &process : processes)
-        {
-            if (nextSequenceNumber[process.first] < min_seq_num)
-            {
-                min_seq_num = nextSequenceNumber[process.first];
-                process_id = process.first;
-            }
-        }
+        std::shared_ptr<std::mutex> lockPtr = pendingMessagesLocks[sender_id];
+        std::unique_lock<std::mutex> lock(*lockPtr);
 
-        {
-            std::shared_ptr<std::mutex> lockPtr = pendingMessagesLocks[process_id];
-            std::unique_lock<std::mutex> lock(*lockPtr);
-            cv.wait(lock, [this, process_id]()
-                    { return nextSequenceNumber[process_id] + SEQUENCE_BUFFER_SIZE > lsn.load(); });
-        }
+        cv.wait(lock, [this]()
+                { return getStopThreads() || (nextSequenceNumber[sender_id] + SEQUENCE_BUFFER_SIZE > lsn.load()); });
     }
 
     lsn++;
@@ -132,37 +104,26 @@ void FIFOReliableBroadcast::handleDeliver(const MessageBatch &msgBatch, const st
 {
     const std::pair<unsigned long, uint32_t> &batch_key = msgBatch.get_batch_key();
     const unsigned long sender_process = batch_key.first;
-    std::vector<MessageBatch> toDeliver;
 
+    std::shared_ptr<std::mutex> lockPtr = pendingMessagesLocks[sender_process];
+    std::lock_guard<std::mutex> lock(*lockPtr);
+    pendingMessages[sender_process].insert(msgBatch);
+
+    auto it = pendingMessages[sender_process].begin();
+    while (it != pendingMessages[sender_process].end() && it->get_seq_num() == nextSequenceNumber[sender_process])
     {
-        std::shared_ptr<std::mutex> lockPtr = pendingMessagesLocks[sender_process];
-        std::lock_guard<std::mutex> lock(*lockPtr);
-        pendingMessages[sender_process].insert(msgBatch);
-
-        auto it = pendingMessages[sender_process].begin();
-        while (it != pendingMessages[sender_process].end() && it->get_seq_num() == nextSequenceNumber[sender_process])
+        if (this->getStopThreads())
         {
-            if (this->getStopThreads())
-            {
-                break;
-            }
-
-            MessageBatch front = *it;
-            pendingMessages[sender_process].erase(it);
-            nextSequenceNumber[sender_process]++;
-
-            toDeliver.push_back(front);
-
-            it = pendingMessages[sender_process].begin();
+            break;
         }
-        cv.notify_all();
-    }
 
-    {
-        std::lock_guard<std::mutex> lock(delevringMutex);
-        for (const auto &msgBatch : toDeliver)
-        {
-            deliverCallback(msgBatch);
-        }
+        MessageBatch front = *it;
+        pendingMessages[sender_process].erase(it);
+        nextSequenceNumber[sender_process]++;
+
+        deliverCallback(front);
+
+        it = pendingMessages[sender_process].begin();
     }
+    cv.notify_all();
 }
