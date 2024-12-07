@@ -10,13 +10,13 @@
 class Message
 {
 private:
-    uint32_t msg_id;
+    uint64_t msg_id;
     unsigned long sender_id;
     std::string msg;
     size_t msg_size;
     bool is_ack;
 
-    static std::atomic<uint32_t> msg_counter;
+    static std::atomic<uint64_t> msg_counter;
 
 public:
     Message(unsigned long sender_id, const std::string &msg)
@@ -25,24 +25,24 @@ public:
         msg_id = msg_counter++;
     }
 
-    Message(uint32_t msg_id, unsigned long sender_id, const std::string &msg)
+    Message(uint64_t msg_id, unsigned long sender_id, const std::string &msg)
         : msg_id(msg_id), sender_id(sender_id), msg(msg), msg_size(msg.length()), is_ack(false)
     {
     }
 
-    Message(uint32_t msg_id, unsigned long sender_id, const std::string &msg, bool is_ack)
+    Message(uint64_t msg_id, unsigned long sender_id, const std::string &msg, bool is_ack)
         : msg_id(msg_id), sender_id(sender_id), msg(msg), msg_size(msg.length()), is_ack(is_ack)
     {
     }
 
-    Message(uint32_t msg_id, unsigned long sender_id, bool is_ack)
+    Message(uint64_t msg_id, unsigned long sender_id, bool is_ack)
         : msg_id(msg_id), sender_id(sender_id), msg(""), msg_size(0), is_ack(is_ack)
     {
     }
 
     ~Message() = default;
 
-    uint32_t get_msg_id() const { return msg_id; }
+    uint64_t get_msg_id() const { return msg_id; }
     unsigned long get_sender_id() const { return sender_id; }
     const std::string &get_msg() const { return msg; }
     size_t get_msg_size() const { return msg_size; }
@@ -75,7 +75,7 @@ public:
     {
         size_t offset = 0;
 
-        uint32_t msg_id;
+        uint64_t msg_id;
         std::memcpy(&msg_id, buffer + offset, sizeof(msg_id));
         offset += sizeof(msg_id);
 
@@ -100,4 +100,4 @@ public:
     }
 };
 
-std::atomic<uint32_t> Message::msg_counter{0};
+std::atomic<uint64_t> Message::msg_counter{0};

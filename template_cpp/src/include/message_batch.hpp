@@ -1,18 +1,45 @@
 #pragma once
 
 #include <vector>
+#include <utility>
+#include <string>
+
 #include "message.hpp"
 
 class MessageBatch
 {
 private:
+    std::pair<unsigned long, uint32_t> batch_key;
     std::vector<Message> messages;
     in_addr_t dest_addr;
     unsigned short dest_port;
 
 public:
-    MessageBatch(in_addr_t dest_addr, unsigned short dest_port) : dest_addr(dest_addr), dest_port(dest_port) {}
-    MessageBatch(const std::vector<Message> &msgs, in_addr_t dest_addr, unsigned short dest_port) : messages(msgs), dest_addr(dest_addr), dest_port(dest_port) {}
+    MessageBatch(in_addr_t dest_addr, unsigned short dest_port) : batch_key(std::make_pair(0, 0)), dest_addr(dest_addr), dest_port(dest_port) {}
+    MessageBatch(const std::pair<unsigned long, uint32_t> &batch_key, in_addr_t dest_addr, unsigned short dest_port) : batch_key(batch_key), dest_addr(dest_addr), dest_port(dest_port) {}
+    MessageBatch(const std::pair<unsigned long, uint32_t> &batch_key, const std::vector<Message> &msgs, in_addr_t dest_addr, unsigned short dest_port) : batch_key(batch_key), messages(msgs), dest_addr(dest_addr), dest_port(dest_port) {}
+    MessageBatch(const std::pair<unsigned long, uint32_t> &batch_key, unsigned long sender_id, const std::vector<std::string> &msgs, in_addr_t dest_addr, unsigned short dest_port) : batch_key(batch_key), dest_addr(dest_addr), dest_port(dest_port)
+    {
+        for (const auto &msg : msgs)
+        {
+            messages.push_back(Message(sender_id, msg));
+        }
+    }
+
+    unsigned long get_sender_id() const
+    {
+        return batch_key.first;
+    }
+
+    uint32_t get_seq_num() const
+    {
+        return batch_key.second;
+    }
+
+    const std::pair<unsigned long, uint32_t> &get_batch_key() const
+    {
+        return batch_key;
+    }
 
     void add_message(const Message &msg)
     {
@@ -22,6 +49,17 @@ public:
     const std::vector<Message> &get_messages() const
     {
         return messages;
+    }
+
+    const std::vector<std::string> get_messages_str() const
+    {
+        std::vector<std::string> msgs;
+        for (const auto &msg : messages)
+        {
+            msgs.push_back(msg.get_msg());
+        }
+
+        return msgs;
     }
 
     in_addr_t get_dest_addr() const
@@ -37,6 +75,9 @@ public:
     static char *serialize(const MessageBatch &batch, size_t &buffer_size)
     {
         std::vector<char> buffer;
+
+        buffer.insert(buffer.end(), reinterpret_cast<const char *>(&batch.batch_key.first), reinterpret_cast<const char *>(&batch.batch_key.first) + sizeof(batch.batch_key.first));
+        buffer.insert(buffer.end(), reinterpret_cast<const char *>(&batch.batch_key.second), reinterpret_cast<const char *>(&batch.batch_key.second) + sizeof(batch.batch_key.second));
 
         size_t num_messages = batch.messages.size();
         buffer.insert(buffer.end(), reinterpret_cast<const char *>(&num_messages), reinterpret_cast<const char *>(&num_messages) + sizeof(num_messages));
@@ -64,6 +105,13 @@ public:
     {
         size_t offset = 0;
 
+        std::pair<unsigned long, uint32_t> batch_key;
+        std::memcpy(&batch_key.first, buffer + offset, sizeof(batch_key.first));
+        offset += sizeof(batch_key.first);
+
+        std::memcpy(&batch_key.second, buffer + offset, sizeof(batch_key.second));
+        offset += sizeof(batch_key.second);
+
         size_t num_messages;
         std::memcpy(&num_messages, buffer + offset, sizeof(num_messages));
         offset += sizeof(num_messages);
@@ -88,6 +136,6 @@ public:
             messages.push_back(msg);
         }
 
-        return MessageBatch(messages, dest_addr, dest_port);
+        return MessageBatch(batch_key, messages, dest_addr, dest_port);
     }
 };

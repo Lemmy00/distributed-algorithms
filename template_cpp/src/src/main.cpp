@@ -3,23 +3,19 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include <signal.h>
+#include <string>
 
 #include "parser.hpp"
 #include "hello.h"
-#include "perfect_links.hpp"
+#include "fifo_reliable_broadcast.hpp"
 #include "message.hpp"
 #include "message_batch.hpp"
 #include "config.hpp"
 #include "logger.hpp"
-#include <signal.h>
 
 std::shared_ptr<Logger> logger;
-std::unique_ptr<PerfectLinks> perfectLinks;
-
-std::vector<std::thread> receiverThreads;
-std::thread receiverThread;
-std::thread senderThread;
-std::thread sendingThread;
+std::unique_ptr<FIFOReliableBroadcast> fifoReliableBroadcast;
 
 static void stop(int)
 {
@@ -30,9 +26,9 @@ static void stop(int)
   // immediately stop network packet processing
   std::cout << "Immediately stopping network packet processing.\n";
 
-  if (perfectLinks)
+  if (fifoReliableBroadcast)
   {
-    perfectLinks->stop();
+    fifoReliableBroadcast->stop();
   }
 
   // write/flush output file if necessary
@@ -94,45 +90,28 @@ int main(int argc, char **argv)
   parser.configPath();
   Config config(parser.configPath());
   std::cout << "Number of messages: " << config.get_num_msgs() << "\n";
-  std::cout << "Receiver index: " << config.get_receiver_index() << "\n\n";
-
-  std::cout << "Doing some initialization...\n\n";
 
   std::cout << "Broadcasting and delivering messages...\n\n";
 
   Parser::Host currentHost = hostMap[parser.id()];
 
-  if (parser.id() == config.get_receiver_index())
-  {
-    logger = std::make_shared<Logger>(parser.outputPath(), 5000000);
-  }
-  else
-  {
-    logger = std::make_shared<Logger>(parser.outputPath(), 16000);
-  }
+  logger = std::make_shared<Logger>(parser.outputPath(), 10000);
+  fifoReliableBroadcast = std::make_unique<FIFOReliableBroadcast>(parser.id(), currentHost.ip, currentHost.port, hostMap, 5, [](const MessageBatch &msgBatch)
+                                                                  {
 
-  perfectLinks = std::make_unique<PerfectLinks>(currentHost.ip, currentHost.port, logger, 45000);
-
-  if (parser.id() == config.get_receiver_index())
-  {
-    receiverThreads = perfectLinks->startReceivers(7);
-    for (size_t i = 0; i < 7; i++)
+    unsigned long sender_id = msgBatch.get_batch_key().first;
+    for (const auto &msg : msgBatch.get_messages())
     {
-      receiverThreads[i].detach();
-    }
-  }
-  else
-  {
-    receiverThread = perfectLinks->startReceiver();
-    senderThread = perfectLinks->startSender();
-    receiverThread.detach();
-    senderThread.detach();
+      logger->log("d " + std::to_string(sender_id) + " " + msg.get_msg());
+    } });
 
-    sendingThread = std::thread([&]()
-                                {
+  fifoReliableBroadcast->startBroadcaster(3);
+
+  std::thread sendingThread = std::thread([&]()
+                                          {
       for (unsigned long i = 1; i <= config.get_num_msgs(); i += 8)
       {
-        MessageBatch batch(hostMap[config.get_receiver_index()].ip, hostMap[config.get_receiver_index()].port);
+        std::vector<std::string> messages;
         for (unsigned long j = i; j < i + 8; j++)
         {
           if (j > config.get_num_msgs())
@@ -140,21 +119,23 @@ int main(int argc, char **argv)
             break;
           }
 
-          std::string message = std::to_string(j);
-          Message msg(parser.id(), message);
-          batch.add_message(msg);
+          messages.push_back(std::to_string(j));
         }
 
-        if (perfectLinks->get_stop_threads())
+        if (fifoReliableBroadcast->getStopThreads())
         {
           break;
         }
 
-        perfectLinks->send(batch);
+        for (const auto &msg : messages)
+        {
+          logger->log("b " + msg);
+        }
+        fifoReliableBroadcast.get()->broadcast(messages);
+
       } });
 
-    sendingThread.detach();
-  }
+  sendingThread.detach();
 
   std::cout << "Waiting for messages...\n";
 

@@ -6,7 +6,6 @@ class Config
 {
 private:
     unsigned long num_msgs;
-    unsigned long receiver_index;
 
 public:
     Config(const char *path)
@@ -17,7 +16,7 @@ public:
             throw std::runtime_error("Unable to open config file.");
         }
 
-        infile >> num_msgs >> receiver_index;
+        infile >> num_msgs;
         if (infile.fail())
         {
             throw std::runtime_error("Error reading config values.");
@@ -25,5 +24,4 @@ public:
     }
 
     unsigned long get_num_msgs() const { return num_msgs; }
-    unsigned long get_receiver_index() const { return receiver_index; }
 };

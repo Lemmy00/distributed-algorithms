@@ -21,7 +21,6 @@
 #include "fair_loss_links.hpp"
 #include "message.hpp"
 #include "message_batch.hpp"
-#include "logger.hpp"
 #include "ts_queue.hpp"
 
 #define BUFFER_SIZE 512
@@ -30,18 +29,17 @@ class PerfectLinks
 {
 private:
     FairLossLinks fairLossLinks;
-    std::unordered_map<unsigned long, std::unordered_set<uint32_t>> receivedMessages;
-    std::unordered_set<uint32_t> ackedMessages;
+    std::unordered_map<unsigned long, std::unordered_set<uint64_t>> receivedMessages;
+    std::unordered_set<uint64_t> ackedMessages;
     std::mutex ackedMessagesMutex;
     std::mutex receivedMessagesMutex;
 
     TSQueue<MessageBatch> messageQueue;
     std::atomic<bool> stopThreads{false};
-
-    std::shared_ptr<Logger> logger;
+    std::function<void(const MessageBatch &)> deliverCallback;
 
 public:
-    PerfectLinks(in_addr_t ip, unsigned short port, std::shared_ptr<Logger> loggerInstance, size_t queueSize = 100000);
+    PerfectLinks(in_addr_t ip, unsigned short port, size_t queueSize, std::function<void(const MessageBatch &)> deliverCallback);
     ~PerfectLinks();
 
     void send(const MessageBatch &msg);
@@ -51,8 +49,7 @@ public:
     std::thread startReceiver();
 
     void stop();
-
-    std::atomic<bool> &get_stop_threads() { return stopThreads; }
+    std::atomic<bool> &getStopThreads() { return stopThreads; }
 
 private:
     void sendWorker();
@@ -60,8 +57,8 @@ private:
     void sendAck(const MessageBatch &ack_msg);
 };
 
-PerfectLinks::PerfectLinks(in_addr_t ip, unsigned short port, std::shared_ptr<Logger> loggerInstance, size_t queueSize)
-    : fairLossLinks(ip, port), messageQueue(queueSize), logger(std::move(loggerInstance)) {}
+PerfectLinks::PerfectLinks(in_addr_t ip, unsigned short port, size_t queueSize, std::function<void(const MessageBatch &)> deliverCallback)
+    : fairLossLinks(ip, port), messageQueue(queueSize), deliverCallback(std::move(deliverCallback)) {}
 
 PerfectLinks::~PerfectLinks()
 {
@@ -101,14 +98,9 @@ void PerfectLinks::send(const MessageBatch &msgBatch)
         return;
     }
 
-    while (messageQueue.full())
+    /*while (messageQueue.full())
     {
-    }
-
-    for (const auto &message : msgBatch.get_messages())
-    {
-        logger->log("b " + message.get_msg());
-    }
+    }*/
 
     // std::cout << "Sending message with ID: " << msgBatch.get_messages().front().get_msg_id() << " with content: " << msgBatch.get_messages().front().get_msg() << "\n";
     size_t buffer_size;
@@ -208,10 +200,12 @@ void PerfectLinks::receiverWorker()
                 break;
             }
 
-            for (const auto &msg : msgBatch.get_messages())
+            deliverCallback(msgBatch);
+
+            /*for (const auto &msg : msgBatch.get_messages())
             {
                 logger->log("d " + std::to_string(msg.get_sender_id()) + " " + msg.get_msg());
-            }
+            }*/
 
             /*std::cout << "Delivered message with ID: " << front.get_msg_id()
                       << " from sender: " << front.get_sender_id()
