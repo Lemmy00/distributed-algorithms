@@ -10,7 +10,7 @@ In this repository, you can find the template for Java and C/C++, but also helpf
 For instructions and details, please refer to the project description.
 
 
-## Perfect Links commands
+## Commands for testing
 ```
 ./run.sh --id 1 --hosts ../example/hosts --output ../example/output/proc01.output ../example/configs/fifo-broadcast.config
 
@@ -19,9 +19,6 @@ For instructions and details, please refer to the project description.
 ./run.sh --id 3 --hosts ../example/hosts --output ../example/output/proc03.output ../example/configs/fifo-broadcast.config
 
 timeout 1s ./run.sh --id 1 --hosts ../example/hosts --output ../example/output/1.output ../example/configs/perfect-links.config
-
-timeout 120s ./run.sh --id 1 --hosts ../example/hosts --output ../example/output/1.output ../example/configs/perfect-links.config
-
 
 python3 stress.py fifo -r ../template_cpp/run.sh -l ../example/output/stress -p 128 -m 10000000
 python3 stress.py fifo -r ../template_cpp/run.sh -l ../example/output/stress -p 30 -m 500000
