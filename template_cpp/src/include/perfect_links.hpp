@@ -39,7 +39,7 @@ private:
     std::function<void(const MessageBatch &)> deliverCallback;
 
 public:
-    PerfectLinks(in_addr_t ip, unsigned short port, size_t queueSize, std::function<void(const MessageBatch &)> deliverCallback);
+    PerfectLinks(in_addr_t ip, unsigned short port, std::function<void(const MessageBatch &)> deliverCallback);
     ~PerfectLinks();
 
     void send(const MessageBatch &msg);
@@ -57,8 +57,8 @@ private:
     void sendAck(const MessageBatch &ack_msg);
 };
 
-PerfectLinks::PerfectLinks(in_addr_t ip, unsigned short port, size_t queueSize, std::function<void(const MessageBatch &)> deliverCallback)
-    : fairLossLinks(ip, port), messageQueue(queueSize), deliverCallback(std::move(deliverCallback)) {}
+PerfectLinks::PerfectLinks(in_addr_t ip, unsigned short port, std::function<void(const MessageBatch &)> deliverCallback)
+    : fairLossLinks(ip, port), deliverCallback(std::move(deliverCallback)) {}
 
 PerfectLinks::~PerfectLinks()
 {

@@ -49,7 +49,7 @@ public:
 
             if (logBufferA.size() >= maxBufferSize)
             {
-                useA.store(false);
+                // useA.store(false);
                 flush_lockedA();
             }
         }

@@ -55,7 +55,7 @@ private:
     std::mutex messageAcknowledgementsMutex;
 
 public:
-    UniformReliableBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, size_t queueSize, const std::function<void(const MessageBatch &)> &deliverCallback);
+    UniformReliableBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, const std::function<void(const MessageBatch &)> &deliverCallback);
     ~UniformReliableBroadcast();
 
     void broadcast(const std::pair<unsigned long, uint32_t> &batch_key, const std::vector<std::string> &msgs);
@@ -73,8 +73,8 @@ private:
     void handleDeliver(const MessageBatch &msgBatch, const std::function<void(const MessageBatch &)> &deliverCallback);
 };
 
-UniformReliableBroadcast::UniformReliableBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, size_t queueSize, const std::function<void(const MessageBatch &)> &deliverCallback)
-    : sender_id(sender_id), bestEffortBroadcast(sender_id, ip, port, processes, queueSize, [this, deliverCallback](const MessageBatch &msgBatch)
+UniformReliableBroadcast::UniformReliableBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, const std::function<void(const MessageBatch &)> &deliverCallback)
+    : sender_id(sender_id), bestEffortBroadcast(sender_id, ip, port, processes, [this, deliverCallback](const MessageBatch &msgBatch)
                                                 { this->handleDeliver(msgBatch, deliverCallback); }),
       processes(processes) {}
 
@@ -107,7 +107,7 @@ void UniformReliableBroadcast::broadcast(const std::pair<unsigned long, uint32_t
 bool UniformReliableBroadcast::canDeliver(const std::pair<unsigned long, uint32_t> &batch_key)
 {
     std::lock_guard<std::mutex> lock(messageAcknowledgementsMutex);
-    return messageAcknowledgements.at(batch_key).size() >= processes.size() / 2 + 1;
+    return messageAcknowledgements.at(batch_key).size() > processes.size() / 2;
 }
 
 bool UniformReliableBroadcast::isNotPending(const std::pair<unsigned long, uint32_t> &batch_key)
@@ -139,6 +139,10 @@ void UniformReliableBroadcast::handleDeliver(const MessageBatch &msgBatch, const
                   << " " << batch_key.second
                   << ", content: " << msgBatch.get_messages().front().get_msg()
                   << ", from process: " << process_id << "\n";*/
+        {
+            std::lock_guard<std::mutex> lock(messageAcknowledgementsMutex);
+            messageAcknowledgements[batch_key].insert(sender_id);
+        }
         bestEffortBroadcast.broadcast(batch_key, msgBatch.get_messages_str());
     }
 

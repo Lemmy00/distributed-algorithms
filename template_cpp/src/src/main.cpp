@@ -96,7 +96,7 @@ int main(int argc, char **argv)
   Parser::Host currentHost = hostMap[parser.id()];
 
   logger = std::make_shared<Logger>(parser.outputPath(), 10000);
-  fifoReliableBroadcast = std::make_unique<FIFOReliableBroadcast>(parser.id(), currentHost.ip, currentHost.port, hostMap, 5, [](const MessageBatch &msgBatch)
+  fifoReliableBroadcast = std::make_unique<FIFOReliableBroadcast>(parser.id(), currentHost.ip, currentHost.port, hostMap, [](const MessageBatch &msgBatch)
                                                                   {
 
     unsigned long sender_id = msgBatch.get_batch_key().first;

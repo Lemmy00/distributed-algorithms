@@ -48,7 +48,7 @@ if __name__ == "__main__":
     config = {
         'delay': ('200ms', '50ms'),
         'loss': ('10%', '25%'),
-        'reordering': ('25%', '50%')
+        'reordering': ('50%', '50%')
     }
 
     print("Do not have multiple instances of this script executing at the same time!\n")

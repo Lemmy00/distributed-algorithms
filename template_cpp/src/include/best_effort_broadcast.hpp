@@ -25,7 +25,7 @@ private:
     std::vector<std::thread> receiverThreads;
 
 public:
-    BestEffortBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, size_t queueSize, std::function<void(const MessageBatch &)> deliverCallback);
+    BestEffortBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback);
     ~BestEffortBroadcast();
 
     void broadcast(const std::pair<unsigned long, uint32_t> &batch_key, const std::vector<std::string> &msgs);
@@ -36,8 +36,8 @@ public:
     std::atomic<bool> &getStopThreads() { return perfectLinks.getStopThreads(); }
 };
 
-BestEffortBroadcast::BestEffortBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, size_t queueSize, std::function<void(const MessageBatch &)> deliverCallback)
-    : sender_id(sender_id), perfectLinks(ip, port, queueSize, deliverCallback), processes(processes)
+BestEffortBroadcast::BestEffortBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback)
+    : sender_id(sender_id), perfectLinks(ip, port, deliverCallback), processes(processes)
 {
 }
 

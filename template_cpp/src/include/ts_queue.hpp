@@ -18,21 +18,15 @@ private:
     std::atomic<size_t> m_size{0};
     std::mutex m_mutex;
     std::condition_variable m_cond;
-    size_t m_capacity;
     std::atomic<bool> m_shutdown{false};
 
 public:
-    TSQueue(size_t capacity = 100000) : m_capacity(capacity) {}
+    TSQueue() {}
 
     void shutdown()
     {
         m_shutdown.store(true);
         m_cond.notify_all();
-    }
-
-    bool full() const
-    {
-        return m_size.load() >= m_capacity;
     }
 
     void push(T item)
