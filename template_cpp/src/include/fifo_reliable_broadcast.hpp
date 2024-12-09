@@ -30,7 +30,8 @@ struct PendingMessageComparator
 class FIFOReliableBroadcast
 {
 private:
-    const size_t SEQUENCE_BUFFER_SIZE = 100;
+    size_t SEQUENCE_BUFFER_SIZE;
+    size_t QUEUE_BUFFER_SIZE = 40000;
 
     unsigned long sender_id;
     UniformReliableBroadcast uniformReliableBroadcast;
@@ -69,6 +70,15 @@ FIFOReliableBroadcast::FIFOReliableBroadcast(unsigned long sender_id, in_addr_t 
         pendingMessagesLocks[process.first] = std::make_shared<std::mutex>();
     }
     pendingMessagesLocks.reserve(processes.size());
+
+    if (processes.size() > 80)
+    {
+        SEQUENCE_BUFFER_SIZE = 20;
+    }
+    else
+    {
+        SEQUENCE_BUFFER_SIZE = 100 - processes.size();
+    }
 }
 
 FIFOReliableBroadcast::~FIFOReliableBroadcast()
@@ -95,6 +105,10 @@ void FIFOReliableBroadcast::broadcast(const std::vector<std::string> &msgs)
 
         cv.wait(lock, [this]()
                 { return getStopThreads() || (nextSequenceNumber[sender_id].load() + SEQUENCE_BUFFER_SIZE > lsn.load()); });
+    }
+
+    while (uniformReliableBroadcast.getQueueSize() > QUEUE_BUFFER_SIZE)
+    {
     }
 
     lsn++;

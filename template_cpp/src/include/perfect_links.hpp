@@ -50,6 +50,7 @@ public:
 
     void stop();
     std::atomic<bool> &getStopThreads() { return stopThreads; }
+    size_t getQueueSize() { return messageQueue.size(); }
 
 private:
     void sendWorker();

@@ -29,6 +29,11 @@ public:
         m_cond.notify_all();
     }
 
+    size_t size()
+    {
+        return m_size.load();
+    }
+
     void push(T item)
     {
         if (m_shutdown.load())

@@ -109,10 +109,10 @@ int main(int argc, char **argv)
 
   std::thread sendingThread = std::thread([&]()
                                           {
-      for (unsigned long i = 1; i <= config.get_num_msgs(); i += 8)
+      for (unsigned long i = 1; i <= config.get_num_msgs(); i += 2)
       {
         std::vector<std::string> messages;
-        for (unsigned long j = i; j < i + 8; j++)
+        for (unsigned long j = i; j < i + 2; j++)
         {
           if (j > config.get_num_msgs())
           {

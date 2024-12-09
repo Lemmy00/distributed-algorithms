@@ -34,6 +34,7 @@ public:
     void stop();
 
     std::atomic<bool> &getStopThreads() { return perfectLinks.getStopThreads(); }
+    size_t getQueueSize() { return perfectLinks.getQueueSize(); }
 };
 
 BestEffortBroadcast::BestEffortBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback)
