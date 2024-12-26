@@ -38,7 +38,7 @@ public:
 };
 
 BestEffortBroadcast::BestEffortBroadcast(uint8_t sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<uint8_t, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback)
-    : sender_id(sender_id), perfectLinks(ip, port, deliverCallback), processes(processes)
+    : sender_id(sender_id), perfectLinks(sender_id, ip, port, deliverCallback), processes(processes)
 {
 }
 
@@ -73,7 +73,7 @@ void BestEffortBroadcast::broadcast(const std::pair<uint8_t, uint32_t> &batch_ke
             continue;
         }
 
-        MessageBatch batch(batch_key, sender_id, msgs, process.ip, process.port);
+        MessageBatch batch(batch_key, sender_id, msgs, id, process.ip, process.port, false);
 
         if (perfectLinks.getStopThreads())
         {

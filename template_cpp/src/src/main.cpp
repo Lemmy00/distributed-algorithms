@@ -106,7 +106,7 @@ int main(int argc, char **argv)
     std::string sender_id = std::to_string(static_cast<unsigned int>(msgBatch.get_batch_key().first));
     for (const auto &msg : msgBatch.get_messages())
     {
-      logger->log("d " + sender_id + " " + msg.get_msg());
+      logger->log("d " + sender_id + " " + msg);
     } });
 
   fifoReliableBroadcast->startBroadcaster(3);

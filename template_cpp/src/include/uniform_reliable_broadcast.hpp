@@ -15,17 +15,6 @@
 #include "message_batch.hpp"
 #include "best_effort_broadcast.hpp"
 
-// hash solution from https://stackoverflow.com/questions/20590656/how-to-solve-error-for-hash-function-of-pair-of-ints-in-unordered-map
-struct pairhash
-{
-public:
-    template <typename T, typename U>
-    std::size_t operator()(const std::pair<T, U> &x) const
-    {
-        return std::hash<T>()(x.first) ^ (std::hash<U>()(x.second) << 1);
-    }
-};
-
 template <typename Set, typename Mutex>
 bool safeInsertIfAbsent(Set &set, const typename Set::value_type &value, Mutex &mutex)
 {
@@ -124,7 +113,7 @@ bool UniformReliableBroadcast::isNotDelivered(const std::pair<uint8_t, uint32_t>
 void UniformReliableBroadcast::handleDeliver(const MessageBatch &msgBatch, const std::function<void(const MessageBatch &)> &deliverCallback)
 {
     const std::pair<uint8_t, uint32_t> &batch_key = msgBatch.get_batch_key();
-    const uint8_t process_id = msgBatch.get_messages().front().get_sender_id();
+    const uint8_t process_id = msgBatch.get_sender_id();
     {
         std::lock_guard<std::mutex> lock(messageAcknowledgementsMutex);
         messageAcknowledgements[batch_key].insert(process_id);
@@ -135,7 +124,7 @@ void UniformReliableBroadcast::handleDeliver(const MessageBatch &msgBatch, const
             std::lock_guard<std::mutex> lock(messageAcknowledgementsMutex);
             messageAcknowledgements[batch_key].insert(sender_id);
         }
-        bestEffortBroadcast.broadcast(batch_key, msgBatch.get_messages_str());
+        bestEffortBroadcast.broadcast(batch_key, msgBatch.get_messages());
     }
 
     if (canDeliver(batch_key) && isNotDelivered(batch_key))

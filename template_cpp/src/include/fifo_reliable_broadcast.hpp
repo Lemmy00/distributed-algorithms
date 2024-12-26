@@ -12,6 +12,7 @@
 #include <mutex>
 #include <string>
 #include <queue>
+#include <cmath>
 
 #include "parser.hpp"
 #include "message.hpp"
@@ -31,7 +32,7 @@ class FIFOReliableBroadcast
 {
 private:
     const size_t SEQUENCE_BUFFER_SIZE = 100;
-    const size_t QUEUE_BUFFER_SIZE = 1000;
+    size_t queue_buffer_size = 1000;
 
     uint8_t sender_id;
     UniformReliableBroadcast uniformReliableBroadcast;
@@ -70,6 +71,13 @@ FIFOReliableBroadcast::FIFOReliableBroadcast(uint8_t sender_id, in_addr_t ip, un
         pendingMessagesLocks[process.first] = std::make_shared<std::mutex>();
     }
     pendingMessages.reserve(processes.size());
+
+    const size_t max_buffer = 300000;
+    const double decay_rate = 0.08;
+
+    double number_processes = static_cast<double>(processes.size());
+    size_t buffer_size = static_cast<size_t>(max_buffer * std::exp(-decay_rate * number_processes));
+    queue_buffer_size = std::max(buffer_size, static_cast<size_t>(1000));
 }
 
 FIFOReliableBroadcast::~FIFOReliableBroadcast()
@@ -81,6 +89,8 @@ void FIFOReliableBroadcast::stop()
 {
     uniformReliableBroadcast.stop();
     cv.notify_all();
+
+    std::cout << "End Queue size: " << uniformReliableBroadcast.getQueueSize() << "\n";
 }
 
 void FIFOReliableBroadcast::startBroadcaster(size_t numReceivers)
@@ -98,7 +108,8 @@ void FIFOReliableBroadcast::broadcast(const std::vector<std::string> &msgs)
                 { return getStopThreads() || (nextSequenceNumber[sender_id].load() + SEQUENCE_BUFFER_SIZE > lsn.load()); });
     }
 
-    while (uniformReliableBroadcast.getQueueSize() > QUEUE_BUFFER_SIZE)
+    std::cout << "Queue size: " << uniformReliableBroadcast.getQueueSize() << "\n";
+    while (uniformReliableBroadcast.getQueueSize() > queue_buffer_size)
     {
     }
 
