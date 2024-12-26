@@ -100,7 +100,7 @@ int main(int argc, char **argv)
   uint8_t myID = static_cast<uint8_t>(parser.id());
   Parser::Host currentHost = hostMap[myID];
 
-  logger = std::make_shared<Logger>(parser.outputPath(), 10000);
+  logger = std::make_shared<Logger>(parser.outputPath(), 20000);
   fifoReliableBroadcast = std::make_unique<FIFOReliableBroadcast>(myID, currentHost.ip, currentHost.port, hostMap, [](const MessageBatch &msgBatch)
                                                                   {
     std::string sender_id = std::to_string(static_cast<unsigned int>(msgBatch.get_batch_key().first));
@@ -141,7 +141,7 @@ int main(int argc, char **argv)
 
   sendingThread.detach();
 
-  std::cout << "Waiting for messages...\n";
+  std::cout << "\nWaiting for messages...\n";
 
   // After a process finishes broadcasting,
   // it waits forever for the delivery of messages.

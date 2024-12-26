@@ -41,6 +41,7 @@ private:
     uint8_t sender_id;
 
     FairLossLinks fairLossLinks;
+    // std::unordered_map<std::pair<uint8_t, uint32_t>, std::chrono::steady_clock::time_point, pairhash>
     std::unordered_map<uint8_t, std::unordered_set<std::pair<uint8_t, uint32_t>, pairhash>> receivedMessages;
     std::unordered_map<uint8_t, std::unordered_set<std::pair<uint8_t, uint32_t>, pairhash>> ackedMessages;
     std::mutex ackedMessagesMutex;
@@ -135,6 +136,7 @@ void PerfectLinks::sendWorker()
             auto it = ackedMessages.find(msgBatch.get_dest_id());
             if (it != ackedMessages.end() && it->second.find(msgBatch.get_batch_key()) != it->second.end())
             {
+                ackedMessages[msgBatch.get_dest_id()].erase(msgBatch.get_batch_key());
                 continue;
             }
         }

@@ -97,7 +97,7 @@ void UniformReliableBroadcast::broadcast(const std::pair<uint8_t, uint32_t> &bat
 bool UniformReliableBroadcast::canDeliver(const std::pair<uint8_t, uint32_t> &batch_key)
 {
     std::lock_guard<std::mutex> lock(messageAcknowledgementsMutex);
-    return messageAcknowledgements.at(batch_key).size() > processes.size() / 2;
+    return messageAcknowledgements[batch_key].size() > processes.size() / 2;
 }
 
 bool UniformReliableBroadcast::isNotPending(const std::pair<uint8_t, uint32_t> &batch_key)

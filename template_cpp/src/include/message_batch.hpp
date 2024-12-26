@@ -21,6 +21,8 @@ public:
     MessageBatch(const std::pair<uint8_t, uint32_t> &batch_key, uint8_t sender_id, uint8_t dest_id, in_addr_t dest_addr, unsigned short dest_port, bool is_ack) : batch_key(batch_key), is_ack(is_ack), sender_id(sender_id), dest_id(dest_id), dest_addr(dest_addr), dest_port(dest_port) {}
     MessageBatch(const std::pair<uint8_t, uint32_t> &batch_key, uint8_t sender_id, const std::vector<std::string> &messages, uint8_t dest_id, in_addr_t dest_addr, unsigned short dest_port, bool is_ack) : batch_key(batch_key), is_ack(is_ack), sender_id(sender_id), messages(messages), dest_id(dest_id), dest_addr(dest_addr), dest_port(dest_port) {}
 
+    ~MessageBatch() = default;
+
     const std::pair<uint8_t, uint32_t> &get_batch_key() const
     {
         return batch_key;
@@ -82,8 +84,8 @@ public:
         buffer.insert(buffer.end(), reinterpret_cast<const char *>(&batch.sender_id), reinterpret_cast<const char *>(&batch.sender_id) + sizeof(batch.sender_id));
         buffer.insert(buffer.end(), reinterpret_cast<const char *>(&batch.dest_id), reinterpret_cast<const char *>(&batch.dest_id) + sizeof(batch.dest_id));
 
-        size_t num_messages = batch.messages.size();
-        buffer.insert(buffer.end(), reinterpret_cast<const char *>(&num_messages), reinterpret_cast<const char *>(&num_messages) + sizeof(num_messages));
+        // size_t num_messages = batch.messages.size();
+        //  buffer.insert(buffer.end(), reinterpret_cast<const char *>(&num_messages), reinterpret_cast<const char *>(&num_messages) + sizeof(num_messages));
 
         for (const auto &msg : batch.messages)
         {
@@ -122,13 +124,15 @@ public:
         std::memcpy(&dest_id, buffer + offset, sizeof(dest_id));
         offset += sizeof(dest_id);
 
-        size_t num_messages;
-        std::memcpy(&num_messages, buffer + offset, sizeof(num_messages));
-        offset += sizeof(num_messages);
+        // size_t num_messages;
+        //  std::memcpy(&num_messages, buffer + offset, sizeof(num_messages));
+        //  offset += sizeof(num_messages);
 
         std::vector<std::string> messages;
-        messages.reserve(num_messages);
-        for (size_t i = 0; i < num_messages; ++i)
+        // messages.reserve(num_messages);
+        // for (size_t i = 0; i < num_messages; ++i)
+
+        while (offset < received_size)
         {
             size_t msg_size;
             std::memcpy(&msg_size, buffer + offset, sizeof(size_t));
@@ -143,6 +147,13 @@ public:
             offset += msg_size;
 
             messages.push_back(msg);
+        }
+
+        if (offset != received_size)
+        {
+            std::cerr << "Deserialization error: received buffer size is different than expected message size." << std::endl;
+            std::cerr << "Expected size: " << received_size << ", Processed size: " << offset << std::endl;
+            throw std::runtime_error("Deserialization error: received buffer size is different than expected message size.");
         }
 
         return MessageBatch(batch_key, sender_id, messages, dest_id, dest_addr, dest_port, is_ack);

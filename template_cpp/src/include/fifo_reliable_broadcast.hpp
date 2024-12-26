@@ -31,7 +31,7 @@ struct PendingMessageComparator
 class FIFOReliableBroadcast
 {
 private:
-    const size_t SEQUENCE_BUFFER_SIZE = 100;
+    size_t sequence_buffer_max_latency = 100;
     size_t queue_buffer_size = 1000;
 
     uint8_t sender_id;
@@ -58,6 +58,7 @@ public:
 
 private:
     void handleDeliver(const MessageBatch &msgBatch, const std::function<void(const MessageBatch &)> &deliverCallback);
+    static size_t calculate_buffer_size(size_t max_buffer, double decay_rate, double number_processes, size_t min_size);
 };
 
 FIFOReliableBroadcast::FIFOReliableBroadcast(uint8_t sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<uint8_t, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback)
@@ -72,12 +73,21 @@ FIFOReliableBroadcast::FIFOReliableBroadcast(uint8_t sender_id, in_addr_t ip, un
     }
     pendingMessages.reserve(processes.size());
 
-    const size_t max_buffer = 300000;
-    const double decay_rate = 0.08;
-
+    // Calculate buffer sizes based on number of processes
     double number_processes = static_cast<double>(processes.size());
-    size_t buffer_size = static_cast<size_t>(max_buffer * std::exp(-decay_rate * number_processes));
-    queue_buffer_size = std::max(buffer_size, static_cast<size_t>(1000));
+
+    queue_buffer_size = calculate_buffer_size(300000, 0.08, number_processes, 1000);
+    sequence_buffer_max_latency = calculate_buffer_size(200, 0.03, number_processes, 20);
+
+    std::cout << "Queue buffer size: " << queue_buffer_size << "\n";
+    std::cout << "Sequence buffer max latency: " << sequence_buffer_max_latency << "\n";
+}
+
+size_t FIFOReliableBroadcast::calculate_buffer_size(size_t max_buffer, double decay_rate, double number_processes, size_t min_size)
+{
+    double buffer_size_double = static_cast<double>(max_buffer) * std::exp(-decay_rate * number_processes);
+    size_t buffer_size = static_cast<size_t>(buffer_size_double);
+    return std::max(buffer_size, min_size);
 }
 
 FIFOReliableBroadcast::~FIFOReliableBroadcast()
@@ -90,7 +100,7 @@ void FIFOReliableBroadcast::stop()
     uniformReliableBroadcast.stop();
     cv.notify_all();
 
-    std::cout << "End Queue size: " << uniformReliableBroadcast.getQueueSize() << "\n";
+    // std::cout << "End Queue size: " << uniformReliableBroadcast.getQueueSize() << "\n";
 }
 
 void FIFOReliableBroadcast::startBroadcaster(size_t numReceivers)
@@ -105,10 +115,10 @@ void FIFOReliableBroadcast::broadcast(const std::vector<std::string> &msgs)
         std::unique_lock<std::mutex> lock(*lockPtr);
 
         cv.wait(lock, [this]()
-                { return getStopThreads() || (nextSequenceNumber[sender_id].load() + SEQUENCE_BUFFER_SIZE > lsn.load()); });
+                { return getStopThreads() || (nextSequenceNumber[sender_id].load() + sequence_buffer_max_latency > lsn.load()); });
     }
 
-    std::cout << "Queue size: " << uniformReliableBroadcast.getQueueSize() << "\n";
+    // std::cout << "Queue size: " << uniformReliableBroadcast.getQueueSize() << "\n";
     while (uniformReliableBroadcast.getQueueSize() > queue_buffer_size)
     {
     }
@@ -125,6 +135,11 @@ void FIFOReliableBroadcast::handleDeliver(const MessageBatch &msgBatch, const st
     std::shared_ptr<std::mutex> lockPtr = pendingMessagesLocks[sender_process];
     std::lock_guard<std::mutex> lock(*lockPtr);
     pendingMessages[sender_process].push(msgBatch);
+
+    if (pendingMessages[sender_process].top().get_seq_num() < nextSequenceNumber[sender_process].load())
+    {
+        throw std::runtime_error("Received message with sequence number less than expected");
+    }
 
     while (!pendingMessages[sender_process].empty() &&
            pendingMessages[sender_process].top().get_seq_num() == nextSequenceNumber[sender_process].load())
