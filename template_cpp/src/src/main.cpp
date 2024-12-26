@@ -65,10 +65,10 @@ int main(int argc, char **argv)
   std::cout << "List of resolved hosts is:\n";
   std::cout << "==========================\n";
   auto hosts = parser.hosts();
-  std::unordered_map<unsigned long, Parser::Host> hostMap;
+  std::unordered_map<uint8_t, Parser::Host> hostMap;
   for (auto &host : hosts)
   {
-    std::cout << host.id << "\n";
+    std::cout << static_cast<int>(host.id) << "\n";
     std::cout << "Human-readable IP: " << host.ipReadable() << "\n";
     std::cout << "Machine-readable IP: " << host.ip << "\n";
     std::cout << "Human-readbale Port: " << host.portReadable() << "\n";
@@ -93,26 +93,30 @@ int main(int argc, char **argv)
 
   std::cout << "Broadcasting and delivering messages...\n\n";
 
-  Parser::Host currentHost = hostMap[parser.id()];
+  if (parser.id() > std::numeric_limits<uint8_t>::max())
+  {
+    throw std::out_of_range("Value too large for uint8_t");
+  }
+  uint8_t myID = static_cast<uint8_t>(parser.id());
+  Parser::Host currentHost = hostMap[myID];
 
   logger = std::make_shared<Logger>(parser.outputPath(), 10000);
-  fifoReliableBroadcast = std::make_unique<FIFOReliableBroadcast>(parser.id(), currentHost.ip, currentHost.port, hostMap, [](const MessageBatch &msgBatch)
+  fifoReliableBroadcast = std::make_unique<FIFOReliableBroadcast>(myID, currentHost.ip, currentHost.port, hostMap, [](const MessageBatch &msgBatch)
                                                                   {
-
-    unsigned long sender_id = msgBatch.get_batch_key().first;
+    std::string sender_id = std::to_string(static_cast<unsigned int>(msgBatch.get_batch_key().first));
     for (const auto &msg : msgBatch.get_messages())
     {
-      logger->log("d " + std::to_string(sender_id) + " " + msg.get_msg());
+      logger->log("d " + sender_id + " " + msg.get_msg());
     } });
 
   fifoReliableBroadcast->startBroadcaster(3);
 
   std::thread sendingThread = std::thread([&]()
                                           {
-      for (unsigned long i = 1; i <= config.get_num_msgs(); i += 2)
+      for (size_t i = 1; i <= config.get_num_msgs(); i += 8)
       {
         std::vector<std::string> messages;
-        for (unsigned long j = i; j < i + 2; j++)
+        for (size_t j = i; j < i + 8; j++)
         {
           if (j > config.get_num_msgs())
           {

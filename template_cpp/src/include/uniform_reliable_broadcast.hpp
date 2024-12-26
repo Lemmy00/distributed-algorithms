@@ -41,24 +41,24 @@ bool safeInsertIfAbsent(Set &set, const typename Set::value_type &value, Mutex &
 class UniformReliableBroadcast
 {
 private:
-    unsigned long sender_id;
+    uint8_t sender_id;
 
     BestEffortBroadcast bestEffortBroadcast;
-    std::unordered_map<unsigned long, Parser::Host> processes;
+    std::unordered_map<uint8_t, Parser::Host> processes;
 
-    std::unordered_set<std::pair<unsigned long, uint32_t>, pairhash> deliveredMessages;
-    std::unordered_set<std::pair<unsigned long, uint32_t>, pairhash> pendingMessages;
-    std::unordered_map<std::pair<unsigned long, uint32_t>, std::unordered_set<unsigned long>, pairhash> messageAcknowledgements;
+    std::unordered_set<std::pair<uint8_t, uint32_t>, pairhash> deliveredMessages;
+    std::unordered_set<std::pair<uint8_t, uint32_t>, pairhash> pendingMessages;
+    std::unordered_map<std::pair<uint8_t, uint32_t>, std::unordered_set<uint8_t>, pairhash> messageAcknowledgements;
 
     std::mutex pendingMessagesMutex;
     std::mutex deliveredMessagesMutex;
     std::mutex messageAcknowledgementsMutex;
 
 public:
-    UniformReliableBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, const std::function<void(const MessageBatch &)> &deliverCallback);
+    UniformReliableBroadcast(uint8_t sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<uint8_t, Parser::Host> &processes, const std::function<void(const MessageBatch &)> &deliverCallback);
     ~UniformReliableBroadcast();
 
-    void broadcast(const std::pair<unsigned long, uint32_t> &batch_key, const std::vector<std::string> &msgs);
+    void broadcast(const std::pair<uint8_t, uint32_t> &batch_key, const std::vector<std::string> &msgs);
 
     void startBroadcaster(size_t numReceivers = 3);
     void stop();
@@ -67,14 +67,14 @@ public:
     size_t getQueueSize() { return bestEffortBroadcast.getQueueSize(); }
 
 private:
-    bool canDeliver(const std::pair<unsigned long, uint32_t> &batch_key);
-    bool isNotPending(const std::pair<unsigned long, uint32_t> &batch_key);
-    bool isNotDelivered(const std::pair<unsigned long, uint32_t> &batch_key);
+    bool canDeliver(const std::pair<uint8_t, uint32_t> &batch_key);
+    bool isNotPending(const std::pair<uint8_t, uint32_t> &batch_key);
+    bool isNotDelivered(const std::pair<uint8_t, uint32_t> &batch_key);
 
     void handleDeliver(const MessageBatch &msgBatch, const std::function<void(const MessageBatch &)> &deliverCallback);
 };
 
-UniformReliableBroadcast::UniformReliableBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, const std::function<void(const MessageBatch &)> &deliverCallback)
+UniformReliableBroadcast::UniformReliableBroadcast(uint8_t sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<uint8_t, Parser::Host> &processes, const std::function<void(const MessageBatch &)> &deliverCallback)
     : sender_id(sender_id), bestEffortBroadcast(sender_id, ip, port, processes, [this, deliverCallback](const MessageBatch &msgBatch)
                                                 { this->handleDeliver(msgBatch, deliverCallback); }),
       processes(processes) {}
@@ -94,7 +94,7 @@ void UniformReliableBroadcast::startBroadcaster(size_t numReceivers)
     bestEffortBroadcast.startBroadcaster(numReceivers);
 }
 
-void UniformReliableBroadcast::broadcast(const std::pair<unsigned long, uint32_t> &batch_key, const std::vector<std::string> &msgs)
+void UniformReliableBroadcast::broadcast(const std::pair<uint8_t, uint32_t> &batch_key, const std::vector<std::string> &msgs)
 {
     safeInsertIfAbsent(pendingMessages, batch_key, pendingMessagesMutex);
 
@@ -105,26 +105,26 @@ void UniformReliableBroadcast::broadcast(const std::pair<unsigned long, uint32_t
     bestEffortBroadcast.broadcast(batch_key, msgs);
 }
 
-bool UniformReliableBroadcast::canDeliver(const std::pair<unsigned long, uint32_t> &batch_key)
+bool UniformReliableBroadcast::canDeliver(const std::pair<uint8_t, uint32_t> &batch_key)
 {
     std::lock_guard<std::mutex> lock(messageAcknowledgementsMutex);
     return messageAcknowledgements.at(batch_key).size() > processes.size() / 2;
 }
 
-bool UniformReliableBroadcast::isNotPending(const std::pair<unsigned long, uint32_t> &batch_key)
+bool UniformReliableBroadcast::isNotPending(const std::pair<uint8_t, uint32_t> &batch_key)
 {
     return safeInsertIfAbsent(pendingMessages, batch_key, pendingMessagesMutex);
 }
 
-bool UniformReliableBroadcast::isNotDelivered(const std::pair<unsigned long, uint32_t> &batch_key)
+bool UniformReliableBroadcast::isNotDelivered(const std::pair<uint8_t, uint32_t> &batch_key)
 {
     return safeInsertIfAbsent(deliveredMessages, batch_key, deliveredMessagesMutex);
 }
 
 void UniformReliableBroadcast::handleDeliver(const MessageBatch &msgBatch, const std::function<void(const MessageBatch &)> &deliverCallback)
 {
-    const std::pair<unsigned long, uint32_t> &batch_key = msgBatch.get_batch_key();
-    const unsigned long process_id = msgBatch.get_messages().front().get_sender_id();
+    const std::pair<uint8_t, uint32_t> &batch_key = msgBatch.get_batch_key();
+    const uint8_t process_id = msgBatch.get_messages().front().get_sender_id();
     {
         std::lock_guard<std::mutex> lock(messageAcknowledgementsMutex);
         messageAcknowledgements[batch_key].insert(process_id);

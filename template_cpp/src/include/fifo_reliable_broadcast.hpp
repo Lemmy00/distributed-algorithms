@@ -30,23 +30,23 @@ struct PendingMessageComparator
 class FIFOReliableBroadcast
 {
 private:
-    size_t SEQUENCE_BUFFER_SIZE;
-    size_t QUEUE_BUFFER_SIZE = 40000;
+    const size_t SEQUENCE_BUFFER_SIZE = 100;
+    const size_t QUEUE_BUFFER_SIZE = 1000;
 
-    unsigned long sender_id;
+    uint8_t sender_id;
     UniformReliableBroadcast uniformReliableBroadcast;
-    std::unordered_map<unsigned long, Parser::Host> processes;
+    std::unordered_map<uint8_t, Parser::Host> processes;
 
     std::atomic<uint32_t> lsn{0};
-    std::unordered_map<unsigned long, std::priority_queue<MessageBatch, std::vector<MessageBatch>, PendingMessageComparator>> pendingMessages;
-    std::unordered_map<unsigned long, std::atomic<uint32_t>> nextSequenceNumber;
+    std::unordered_map<uint8_t, std::priority_queue<MessageBatch, std::vector<MessageBatch>, PendingMessageComparator>> pendingMessages;
+    std::unordered_map<uint8_t, std::atomic<uint32_t>> nextSequenceNumber;
 
     std::mutex delevringMutex;
-    std::unordered_map<unsigned long, std::shared_ptr<std::mutex>> pendingMessagesLocks;
+    std::unordered_map<uint8_t, std::shared_ptr<std::mutex>> pendingMessagesLocks;
     std::condition_variable cv;
 
 public:
-    FIFOReliableBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback);
+    FIFOReliableBroadcast(uint8_t sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<uint8_t, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback);
     ~FIFOReliableBroadcast();
 
     void broadcast(const std::vector<std::string> &msgs);
@@ -59,7 +59,7 @@ private:
     void handleDeliver(const MessageBatch &msgBatch, const std::function<void(const MessageBatch &)> &deliverCallback);
 };
 
-FIFOReliableBroadcast::FIFOReliableBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback)
+FIFOReliableBroadcast::FIFOReliableBroadcast(uint8_t sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<uint8_t, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback)
     : sender_id(sender_id), uniformReliableBroadcast(sender_id, ip, port, processes, [this, deliverCallback](const MessageBatch &msgBatch)
                                                      { this->handleDeliver(msgBatch, deliverCallback); }),
       processes(processes)
@@ -69,16 +69,7 @@ FIFOReliableBroadcast::FIFOReliableBroadcast(unsigned long sender_id, in_addr_t 
         nextSequenceNumber[process.first] = 1;
         pendingMessagesLocks[process.first] = std::make_shared<std::mutex>();
     }
-    pendingMessagesLocks.reserve(processes.size());
-
-    if (processes.size() > 80)
-    {
-        SEQUENCE_BUFFER_SIZE = 20;
-    }
-    else
-    {
-        SEQUENCE_BUFFER_SIZE = 100 - processes.size();
-    }
+    pendingMessages.reserve(processes.size());
 }
 
 FIFOReliableBroadcast::~FIFOReliableBroadcast()
@@ -117,8 +108,8 @@ void FIFOReliableBroadcast::broadcast(const std::vector<std::string> &msgs)
 
 void FIFOReliableBroadcast::handleDeliver(const MessageBatch &msgBatch, const std::function<void(const MessageBatch &)> &deliverCallback)
 {
-    const std::pair<unsigned long, uint32_t> &batch_key = msgBatch.get_batch_key();
-    const unsigned long sender_process = batch_key.first;
+    const std::pair<uint8_t, uint32_t> &batch_key = msgBatch.get_batch_key();
+    const uint8_t sender_process = batch_key.first;
 
     std::shared_ptr<std::mutex> lockPtr = pendingMessagesLocks[sender_process];
     std::lock_guard<std::mutex> lock(*lockPtr);

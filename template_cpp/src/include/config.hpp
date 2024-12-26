@@ -5,7 +5,7 @@
 class Config
 {
 private:
-    unsigned long num_msgs;
+    size_t num_msgs;
 
 public:
     Config(const char *path)
@@ -23,5 +23,5 @@ public:
         }
     }
 
-    unsigned long get_num_msgs() const { return num_msgs; }
+    size_t get_num_msgs() const { return num_msgs; }
 };

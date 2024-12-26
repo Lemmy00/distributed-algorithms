@@ -19,21 +19,34 @@
 #include <cstring>
 #include <unistd.h>
 
-class Parser {
+class Parser
+{
 public:
-  struct Host {
+  struct Host
+  {
     Host() {}
     Host(size_t id, std::string &ip_or_hostname, unsigned short port)
-        : id{id}, port{htons(port)} {
+        : port{htons(port)}
+    {
 
-      if (isValidIpAddress(ip_or_hostname.c_str())) {
+      if (id > std::numeric_limits<uint8_t>::max())
+      {
+        throw std::out_of_range("ID exceeds the range of uint8_t");
+      }
+      this->id = static_cast<uint8_t>(id);
+
+      if (isValidIpAddress(ip_or_hostname.c_str()))
+      {
         ip = inet_addr(ip_or_hostname.c_str());
-      } else {
+      }
+      else
+      {
         ip = ipLookup(ip_or_hostname.c_str());
       }
     }
 
-    std::string ipReadable() const {
+    std::string ipReadable() const
+    {
       in_addr tmp_ip;
       tmp_ip.s_addr = ip;
       return std::string(inet_ntoa(tmp_ip));
@@ -41,18 +54,20 @@ public:
 
     unsigned short portReadable() const { return ntohs(port); }
 
-    unsigned long id;
+    uint8_t id;
     in_addr_t ip;
     unsigned short port;
 
   private:
-    bool isValidIpAddress(const char *ipAddress) {
+    bool isValidIpAddress(const char *ipAddress)
+    {
       struct sockaddr_in sa;
       int result = inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
       return result != 0;
     }
 
-    in_addr_t ipLookup(const char *host) {
+    in_addr_t ipLookup(const char *host)
+    {
       struct addrinfo hints, *res;
       char addrstr[128];
       void *ptr;
@@ -62,16 +77,19 @@ public:
       hints.ai_socktype = SOCK_STREAM;
       hints.ai_flags |= AI_CANONNAME;
 
-      if (getaddrinfo(host, NULL, &hints, &res) != 0) {
+      if (getaddrinfo(host, NULL, &hints, &res) != 0)
+      {
         throw std::runtime_error(
             "Could not resolve host `" + std::string(host) +
             "` to IP: " + std::string(std::strerror(errno)));
       }
 
-      while (res) {
+      while (res)
+      {
         inet_ntop(res->ai_family, res->ai_addr->sa_data, addrstr, 128);
 
-        switch (res->ai_family) {
+        switch (res->ai_family)
+        {
         case AF_INET:
           ptr =
               &(reinterpret_cast<struct sockaddr_in *>(res->ai_addr))->sin_addr;
@@ -95,43 +113,52 @@ public:
   Parser(const int argc, char const *const *argv, bool withConfig = true)
       : argc{argc}, argv{argv}, withConfig{withConfig}, parsed{false} {}
 
-  void parse() {
-    if (!parseInternal()) {
+  void parse()
+  {
+    if (!parseInternal())
+    {
       help(argc, argv);
     }
 
     parsed = true;
   }
 
-  unsigned long id() const {
+  unsigned long id() const
+  {
     checkParsed();
     return id_;
   }
 
-  const char *hostsPath() const {
+  const char *hostsPath() const
+  {
     checkParsed();
     return hostsPath_.c_str();
   }
 
-  const char *outputPath() const {
+  const char *outputPath() const
+  {
     checkParsed();
     return outputPath_.c_str();
   }
 
-  const char *configPath() const {
+  const char *configPath() const
+  {
     checkParsed();
-    if (!withConfig) {
+    if (!withConfig)
+    {
       throw std::runtime_error("Parser is configure to ignore the config path");
     }
 
     return configPath_.c_str();
   }
 
-  std::vector<Host> hosts() {
+  std::vector<Host> hosts()
+  {
     std::ifstream hostsFile(hostsPath());
     std::vector<Host> hosts;
 
-    if (!hostsFile.is_open()) {
+    if (!hostsFile.is_open())
+    {
       std::ostringstream os;
       os << "`" << hostsPath() << "` does not exist.";
       throw std::invalid_argument(os.str());
@@ -139,13 +166,15 @@ public:
 
     std::string line;
     int lineNum = 0;
-    while (std::getline(hostsFile, line)) {
+    while (std::getline(hostsFile, line))
+    {
       lineNum += 1;
 
       std::istringstream iss(line);
 
       trim(line);
-      if (line.empty()) {
+      if (line.empty())
+      {
         continue;
       }
 
@@ -153,7 +182,8 @@ public:
       std::string ip;
       unsigned short port;
 
-      if (!(iss >> id >> ip >> port)) {
+      if (!(iss >> id >> ip >> port))
+      {
         std::ostringstream os;
         os << "Parsing for `" << hostsPath() << "` failed at line " << lineNum;
         throw std::invalid_argument(os.str());
@@ -162,17 +192,20 @@ public:
       hosts.push_back(Host(id, ip, port));
     }
 
-    if (hosts.size() < 2UL) {
+    if (hosts.size() < 2UL)
+    {
       std::ostringstream os;
       os << "`" << hostsPath() << "` must contain at least two hosts";
       throw std::invalid_argument(os.str());
     }
 
-    auto comp = [](const Host &x, const Host &y) { return x.id < y.id; };
+    auto comp = [](const Host &x, const Host &y)
+    { return x.id < y.id; };
     auto result = std::minmax_element(hosts.begin(), hosts.end(), comp);
     size_t minID = (*result.first).id;
     size_t maxID = (*result.second).id;
-    if (minID != 1UL || maxID != static_cast<unsigned long>(hosts.size())) {
+    if (minID != 1UL || maxID != static_cast<unsigned long>(hosts.size()))
+    {
       std::ostringstream os;
       os << "In `" << hostsPath()
          << "` IDs of processes have to start from 1 and be compact";
@@ -180,58 +213,77 @@ public:
     }
 
     std::sort(hosts.begin(), hosts.end(),
-              [](const Host &a, const Host &b) -> bool { return a.id < b.id; });
+              [](const Host &a, const Host &b) -> bool
+              { return a.id < b.id; });
 
     return hosts;
   }
 
 private:
-  bool parseInternal() {
-    if (!parseID()) {
+  bool parseInternal()
+  {
+    if (!parseID())
+    {
       return false;
     }
 
-    if (!parseHostPath()) {
+    if (!parseHostPath())
+    {
       return false;
     }
 
-    if (!parseOutputPath()) {
+    if (!parseOutputPath())
+    {
       return false;
     }
 
-    if (!parseConfigPath()) {
+    if (!parseConfigPath())
+    {
       return false;
     }
 
     return true;
   }
 
-  void help(const int, char const *const *argv) {
+  void help(const int, char const *const *argv)
+  {
     auto configStr = "CONFIG";
     std::cerr << "Usage: " << argv[0]
               << " --id ID --hosts HOSTS --output OUTPUT";
 
-    if (!withConfig) {
+    if (!withConfig)
+    {
       std::cerr << "\n";
-    } else {
+    }
+    else
+    {
       std::cerr << " CONFIG\n";
     }
 
     exit(EXIT_FAILURE);
   }
 
-  bool parseID() {
-    if (argc < 3) {
+  bool parseID()
+  {
+    if (argc < 3)
+    {
       return false;
     }
 
-    if (std::strcmp(argv[1], "--id") == 0) {
-      if (isPositiveNumber(argv[2])) {
-        try {
+    if (std::strcmp(argv[1], "--id") == 0)
+    {
+      if (isPositiveNumber(argv[2]))
+      {
+        try
+        {
           id_ = std::stoul(argv[2]);
-        } catch (std::invalid_argument const &e) {
+        }
+        catch (std::invalid_argument const &e)
+        {
           return false;
-        } catch (std::out_of_range const &e) {
+        }
+        catch (std::out_of_range const &e)
+        {
           return false;
         }
 
@@ -242,12 +294,15 @@ private:
     return false;
   }
 
-  bool parseHostPath() {
-    if (argc < 5) {
+  bool parseHostPath()
+  {
+    if (argc < 5)
+    {
       return false;
     }
 
-    if (std::strcmp(argv[3], "--hosts") == 0) {
+    if (std::strcmp(argv[3], "--hosts") == 0)
+    {
       hostsPath_ = std::string(argv[4]);
       return true;
     }
@@ -255,12 +310,15 @@ private:
     return false;
   }
 
-  bool parseOutputPath() {
-    if (argc < 7) {
+  bool parseOutputPath()
+  {
+    if (argc < 7)
+    {
       return false;
     }
 
-    if (std::strcmp(argv[5], "--output") == 0) {
+    if (std::strcmp(argv[5], "--output") == 0)
+    {
       outputPath_ = std::string(argv[6]);
       return true;
     }
@@ -268,12 +326,15 @@ private:
     return false;
   }
 
-  bool parseConfigPath() {
-    if (!withConfig) {
+  bool parseConfigPath()
+  {
+    if (!withConfig)
+    {
       return true;
     }
 
-    if (argc < 8) {
+    if (argc < 8)
+    {
       return false;
     }
 
@@ -281,31 +342,38 @@ private:
     return true;
   }
 
-  bool isPositiveNumber(const std::string &s) const {
-    return !s.empty() && std::find_if(s.begin(), s.end(), [](unsigned char c) {
-                           return !std::isdigit(c);
-                         }) == s.end();
+  bool isPositiveNumber(const std::string &s) const
+  {
+    return !s.empty() && std::find_if(s.begin(), s.end(), [](unsigned char c)
+                                      { return !std::isdigit(c); }) == s.end();
   }
 
-  void checkParsed() const {
-    if (!parsed) {
+  void checkParsed() const
+  {
+    if (!parsed)
+    {
       throw std::runtime_error("Invoke parse() first");
     }
   }
 
-  void ltrim(std::string &s) {
+  void ltrim(std::string &s)
+  {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(),
-                                    [](int ch) { return !std::isspace(ch); }));
+                                    [](int ch)
+                                    { return !std::isspace(ch); }));
   }
 
-  void rtrim(std::string &s) {
+  void rtrim(std::string &s)
+  {
     s.erase(std::find_if(s.rbegin(), s.rend(),
-                         [](int ch) { return !std::isspace(ch); })
+                         [](int ch)
+                         { return !std::isspace(ch); })
                 .base(),
             s.end());
   }
 
-  void trim(std::string &s) {
+  void trim(std::string &s)
+  {
     ltrim(s);
     rtrim(s);
   }

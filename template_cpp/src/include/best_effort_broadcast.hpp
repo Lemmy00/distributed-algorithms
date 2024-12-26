@@ -16,19 +16,19 @@
 class BestEffortBroadcast
 {
 private:
-    unsigned long sender_id;
+    uint8_t sender_id;
 
     PerfectLinks perfectLinks;
-    std::unordered_map<unsigned long, Parser::Host> processes;
+    std::unordered_map<uint8_t, Parser::Host> processes;
 
     std::thread broadcasterThread;
     std::vector<std::thread> receiverThreads;
 
 public:
-    BestEffortBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback);
+    BestEffortBroadcast(uint8_t sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<uint8_t, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback);
     ~BestEffortBroadcast();
 
-    void broadcast(const std::pair<unsigned long, uint32_t> &batch_key, const std::vector<std::string> &msgs);
+    void broadcast(const std::pair<uint8_t, uint32_t> &batch_key, const std::vector<std::string> &msgs);
 
     void startBroadcaster(size_t numReceivers = 3);
     void stop();
@@ -37,7 +37,7 @@ public:
     size_t getQueueSize() { return perfectLinks.getQueueSize(); }
 };
 
-BestEffortBroadcast::BestEffortBroadcast(unsigned long sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<unsigned long, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback)
+BestEffortBroadcast::BestEffortBroadcast(uint8_t sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<uint8_t, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback)
     : sender_id(sender_id), perfectLinks(ip, port, deliverCallback), processes(processes)
 {
 }
@@ -64,7 +64,7 @@ void BestEffortBroadcast::stop()
     perfectLinks.stop();
 }
 
-void BestEffortBroadcast::broadcast(const std::pair<unsigned long, uint32_t> &batch_key, const std::vector<std::string> &msgs)
+void BestEffortBroadcast::broadcast(const std::pair<uint8_t, uint32_t> &batch_key, const std::vector<std::string> &msgs)
 {
     for (auto &[id, process] : processes)
     {

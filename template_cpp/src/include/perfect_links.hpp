@@ -29,7 +29,7 @@ class PerfectLinks
 {
 private:
     FairLossLinks fairLossLinks;
-    std::unordered_map<unsigned long, std::unordered_set<uint64_t>> receivedMessages;
+    std::unordered_map<uint8_t, std::unordered_set<uint64_t>> receivedMessages;
     std::unordered_set<uint64_t> ackedMessages;
     std::mutex ackedMessagesMutex;
     std::mutex receivedMessagesMutex;
@@ -135,6 +135,7 @@ void PerfectLinks::sendWorker()
 
         size_t buffer_size;
         std::unique_ptr<char[]> buffer(MessageBatch::serialize(msgBatch, buffer_size));
+        std::cout << buffer_size << "\n";
 
         fairLossLinks.send(msgBatch.get_dest_addr(), msgBatch.get_dest_port(), buffer.get(), buffer_size);
         messageQueue.push(msgBatch);

@@ -9,16 +9,16 @@
 class MessageBatch
 {
 private:
-    std::pair<unsigned long, uint32_t> batch_key;
+    std::pair<uint8_t, uint32_t> batch_key;
     std::vector<Message> messages;
     in_addr_t dest_addr;
     unsigned short dest_port;
 
 public:
     MessageBatch(in_addr_t dest_addr, unsigned short dest_port) : batch_key(std::make_pair(0, 0)), dest_addr(dest_addr), dest_port(dest_port) {}
-    MessageBatch(const std::pair<unsigned long, uint32_t> &batch_key, in_addr_t dest_addr, unsigned short dest_port) : batch_key(batch_key), dest_addr(dest_addr), dest_port(dest_port) {}
-    MessageBatch(const std::pair<unsigned long, uint32_t> &batch_key, const std::vector<Message> &msgs, in_addr_t dest_addr, unsigned short dest_port) : batch_key(batch_key), messages(msgs), dest_addr(dest_addr), dest_port(dest_port) {}
-    MessageBatch(const std::pair<unsigned long, uint32_t> &batch_key, unsigned long sender_id, const std::vector<std::string> &msgs, in_addr_t dest_addr, unsigned short dest_port) : batch_key(batch_key), dest_addr(dest_addr), dest_port(dest_port)
+    MessageBatch(const std::pair<uint8_t, uint32_t> &batch_key, in_addr_t dest_addr, unsigned short dest_port) : batch_key(batch_key), dest_addr(dest_addr), dest_port(dest_port) {}
+    MessageBatch(const std::pair<uint8_t, uint32_t> &batch_key, const std::vector<Message> &msgs, in_addr_t dest_addr, unsigned short dest_port) : batch_key(batch_key), messages(msgs), dest_addr(dest_addr), dest_port(dest_port) {}
+    MessageBatch(const std::pair<uint8_t, uint32_t> &batch_key, uint8_t sender_id, const std::vector<std::string> &msgs, in_addr_t dest_addr, unsigned short dest_port) : batch_key(batch_key), dest_addr(dest_addr), dest_port(dest_port)
     {
         for (const auto &msg : msgs)
         {
@@ -26,7 +26,7 @@ public:
         }
     }
 
-    unsigned long get_sender_id() const
+    uint8_t get_sender_id() const
     {
         return batch_key.first;
     }
@@ -36,7 +36,7 @@ public:
         return batch_key.second;
     }
 
-    const std::pair<unsigned long, uint32_t> &get_batch_key() const
+    const std::pair<uint8_t, uint32_t> &get_batch_key() const
     {
         return batch_key;
     }
@@ -105,7 +105,7 @@ public:
     {
         size_t offset = 0;
 
-        std::pair<unsigned long, uint32_t> batch_key;
+        std::pair<uint8_t, uint32_t> batch_key;
         std::memcpy(&batch_key.first, buffer + offset, sizeof(batch_key.first));
         offset += sizeof(batch_key.first);
 
