@@ -8,14 +8,14 @@
 
 #include "parser.hpp"
 #include "hello.h"
-#include "fifo_reliable_broadcast.hpp"
-#include "message.hpp"
+#include "lattice_agreement.hpp"
 #include "message_batch.hpp"
+#include "proposal_message.hpp"
 #include "config.hpp"
 #include "logger.hpp"
 
 std::shared_ptr<Logger> logger;
-std::unique_ptr<FIFOReliableBroadcast> fifoReliableBroadcast;
+std::unique_ptr<LatticeAgreement> latticeAgreement;
 
 static void stop(int)
 {
@@ -26,9 +26,9 @@ static void stop(int)
   // immediately stop network packet processing
   std::cout << "Immediately stopping network packet processing.\n";
 
-  if (fifoReliableBroadcast)
+  if (latticeAgreement)
   {
-    fifoReliableBroadcast->stop();
+    latticeAgreement->stop();
   }
 
   // write/flush output file if necessary
@@ -89,7 +89,9 @@ int main(int argc, char **argv)
 
   parser.configPath();
   Config config(parser.configPath());
-  std::cout << "Number of messages: " << config.get_num_msgs() << "\n";
+  std::cout << "Number of proposals: " << config.get_num_proposals() << "\n";
+  std::cout << "Max proposal size: " << config.get_max_proposal_size() << "\n";
+  std::cout << "Number of elements: " << config.get_num_elements() << "\n\n";
 
   std::cout << "Broadcasting and delivering messages...\n\n";
 
@@ -101,47 +103,26 @@ int main(int argc, char **argv)
   Parser::Host currentHost = hostMap[myID];
 
   logger = std::make_shared<Logger>(parser.outputPath(), 20000);
-  fifoReliableBroadcast = std::make_unique<FIFOReliableBroadcast>(myID, currentHost.ip, currentHost.port, hostMap, [](const MessageBatch &msgBatch)
-                                                                  {
-    std::string sender_id = std::to_string(static_cast<unsigned int>(msgBatch.get_batch_key().first));
-    for (const auto &msg : msgBatch.get_messages())
-    {
-      logger->log("d " + sender_id + " " + msg);
-    } });
-
-  fifoReliableBroadcast->startBroadcaster(3);
+  latticeAgreement = std::make_unique<LatticeAgreement>(myID, currentHost.ip, currentHost.port, hostMap, [](const std::string &decodedProposal)
+                                                        { logger->log(decodedProposal); });
+  latticeAgreement->startBroadcaster(3);
 
   std::thread sendingThread = std::thread([&]()
                                           {
-      for (size_t i = 1; i <= config.get_num_msgs(); i += 8)
+    for (uint32_t i = 1; i <= config.get_num_proposals(); i ++)
+    {
+      std::unordered_set<uint16_t> proposal = config.read_next_proposal();
+      if (latticeAgreement->getStopThreads())
       {
-        std::vector<std::string> messages;
-        for (size_t j = i; j < i + 8; j++)
-        {
-          if (j > config.get_num_msgs())
-          {
-            break;
-          }
+        break;
+      }
+      latticeAgreement->propose(proposal, i);
 
-          messages.push_back(std::to_string(j));
-        }
-
-        if (fifoReliableBroadcast->getStopThreads())
-        {
-          break;
-        }
-
-        for (const auto &msg : messages)
-        {
-          logger->log("b " + msg);
-        }
-        fifoReliableBroadcast.get()->broadcast(messages);
-
-      } });
+    } });
 
   sendingThread.detach();
 
-  std::cout << "\nWaiting for messages...\n";
+  std::cout << "Waiting for messages...\n";
 
   // After a process finishes broadcasting,
   // it waits forever for the delivery of messages.

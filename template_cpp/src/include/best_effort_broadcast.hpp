@@ -12,6 +12,7 @@
 #include "parser.hpp"
 #include "message.hpp"
 #include "message_batch.hpp"
+#include "proposal_message.hpp"
 
 class BestEffortBroadcast
 {
@@ -25,10 +26,11 @@ private:
     std::vector<std::thread> receiverThreads;
 
 public:
-    BestEffortBroadcast(uint8_t sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<uint8_t, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback);
+    BestEffortBroadcast(uint8_t sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<uint8_t, Parser::Host> &processes, std::function<void(const ProposalMessage &)> deliverCallback);
     ~BestEffortBroadcast();
 
-    void broadcast(const std::pair<uint8_t, uint32_t> &batch_key, const std::vector<std::string> &msgs);
+    void broadcast(const ProposalMessage &proposal);
+    void send(const ProposalMessage &proposal, uint8_t id);
 
     void startBroadcaster(size_t numReceivers = 3);
     void stop();
@@ -37,7 +39,7 @@ public:
     size_t getQueueSize() { return perfectLinks.getQueueSize(); }
 };
 
-BestEffortBroadcast::BestEffortBroadcast(uint8_t sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<uint8_t, Parser::Host> &processes, std::function<void(const MessageBatch &)> deliverCallback)
+BestEffortBroadcast::BestEffortBroadcast(uint8_t sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<uint8_t, Parser::Host> &processes, std::function<void(const ProposalMessage &)> deliverCallback)
     : sender_id(sender_id), perfectLinks(sender_id, ip, port, deliverCallback), processes(processes)
 {
 }
@@ -64,22 +66,20 @@ void BestEffortBroadcast::stop()
     perfectLinks.stop();
 }
 
-void BestEffortBroadcast::broadcast(const std::pair<uint8_t, uint32_t> &batch_key, const std::vector<std::string> &msgs)
+void BestEffortBroadcast::broadcast(const ProposalMessage &proposal)
 {
     for (auto &[id, process] : processes)
     {
-        if (id == sender_id)
-        {
-            continue;
-        }
-
-        MessageBatch batch(batch_key, sender_id, msgs, id, process.ip, process.port, false);
-
-        if (perfectLinks.getStopThreads())
+        if (getStopThreads())
         {
             break;
         }
 
-        perfectLinks.send(batch);
+        perfectLinks.send(proposal.toMessage(id, process.ip, process.port));
     }
+}
+
+void BestEffortBroadcast::send(const ProposalMessage &proposal, uint8_t id)
+{
+    perfectLinks.send(proposal.toMessage(id, processes[id].ip, processes[id].port));
 }
