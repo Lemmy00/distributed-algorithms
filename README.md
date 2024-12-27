@@ -12,11 +12,11 @@ For instructions and details, please refer to the project description.
 
 ## Commands for testing
 ```
-./run.sh --id 1 --hosts ../example/hosts --output ../example/output/proc01.output ../example/configs/fifo-broadcast.config
+./run.sh --id 1 --hosts ../example/hosts --output ../example/output/proc01.output ../example/configs/lattice-agreement-1.config
 
-./run.sh --id 2 --hosts ../example/hosts --output ../example/output/proc02.output ../example/configs/fifo-broadcast.config
+./run.sh --id 2 --hosts ../example/hosts --output ../example/output/proc02.output ../example/configs/lattice-agreement-2.config
 
-./run.sh --id 3 --hosts ../example/hosts --output ../example/output/proc03.output ../example/configs/fifo-broadcast.config
+./run.sh --id 3 --hosts ../example/hosts --output ../example/output/proc03.output ../example/configs/lattice-agreement-3.config
 
 timeout 1s ./run.sh --id 1 --hosts ../example/hosts --output ../example/output/1.output ../example/configs/perfect-links.config
 
@@ -30,4 +30,13 @@ python3 stress.py fifo -r ../template_cpp/run.sh -l ../example/output/stress -p 
 python3 stress.py fifo -r ../template_cpp/run.sh -l ../example/output/stress -p 7 -m 2000
 
 
+python3 lattice_verify.py 10  ../example/configs/ ../example/output/
+
 ```
+
+## TODO
+
+- [x] Multiple messages per packet
+- [x] Delte process stuff of the non-active proposals
+- [x] Verify the correctness of the lattice agreement
+- [x] Verify memory usage, do we need also a queue limit?

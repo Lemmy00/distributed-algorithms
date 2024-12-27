@@ -67,7 +67,8 @@ LatticeAgreement::LatticeAgreement(uint8_t sender_id, in_addr_t ip, unsigned sho
                                    std::function<void(const std::string &)> deliverCallback)
     : sender_id(sender_id),
       beb(sender_id, ip, port, processes, [this, deliverCallback](const ProposalMessage &proposal)
-          { this->handleDeliver(proposal, deliverCallback); }) {}
+          { this->handleDeliver(proposal, deliverCallback); }),
+      threshold_acks(static_cast<uint8_t>(processes.size() / 2)) {}
 
 LatticeAgreement::~LatticeAgreement()
 {
@@ -146,6 +147,8 @@ void LatticeAgreement::handleAck(const ProposalMessage &proposal, std::function<
     }
 
     num_acks[proposal.getSeqNum()]++;
+    // std::cout << "Handling ack for proposal " << proposal.getSeqNum() << " with active proposal number " << proposal.getActiveProposalNumber() << std::endl;
+    // std::cout << "Num acks: " << static_cast<unsigned int>(num_acks[proposal.getSeqNum()]) << " threshold: " << static_cast<unsigned int>(threshold_acks) << std::endl;
     if (num_acks[proposal.getSeqNum()] > threshold_acks)
     {
         // save proposal
@@ -169,9 +172,9 @@ void LatticeAgreement::handleAck(const ProposalMessage &proposal, std::function<
 
         // erase proposal
         // proposals.erase(proposal.getSeqNum());
-        active_proposal_number.erase(proposal.getSeqNum());
-        num_acks.erase(proposal.getSeqNum());
-        num_nacks.erase(proposal.getSeqNum());
+        // active_proposal_number.erase(proposal.getSeqNum());
+        // num_acks.erase(proposal.getSeqNum());
+        // num_nacks.erase(proposal.getSeqNum());
 
         // try to deliver
         {
@@ -208,15 +211,12 @@ void LatticeAgreement::handleNack(const ProposalMessage &proposal)
     num_nacks[proposal.getSeqNum()]++;
     if (num_nacks[proposal.getSeqNum()] + num_acks[proposal.getSeqNum()] > threshold_acks)
     {
-        active_proposal_number[proposal.getSeqNum()] += 1;
+        active_proposal_number[proposal.getSeqNum()]++;
         num_acks[proposal.getSeqNum()] = 0;
         num_nacks[proposal.getSeqNum()] = 0;
 
-        // propose_msg
         ProposalMessage propose_msg(sender_id, proposal.getSeqNum(), active_proposal_number[proposal.getSeqNum()], proposals[proposal.getSeqNum()], PROPOSAL_TYPE_PROPOSE);
-
-        // boradcast propose_msg
-        // beb.broadcast(batch_key, msgs);
+        beb.broadcast(propose_msg);
     }
 }
 

@@ -30,54 +30,43 @@ public:
 
     ~Message() = default;
 
-    uint64_t get_message_key() const
-    {
-        return message_key;
-    }
-
-    bool get_is_ack() const
-    {
-        return is_ack;
-    }
-
-    uint8_t get_sender_id() const
-    {
-        return sender_id;
-    }
-
-    uint8_t get_dest_id() const
-    {
-        return dest_id;
-    }
-
-    const std::string get_message() const
-    {
-        return message;
-    }
-
-    in_addr_t get_dest_addr() const
-    {
-        return dest_addr;
-    }
-
-    unsigned short get_dest_port() const
-    {
-        return dest_port;
-    }
+    uint64_t get_message_key() const { return message_key; }
+    bool get_is_ack() const { return is_ack; }
+    uint8_t get_sender_id() const { return sender_id; }
+    uint8_t get_dest_id() const { return dest_id; }
+    const std::string &get_message() const { return message; }
+    in_addr_t get_dest_addr() const { return dest_addr; }
+    unsigned short get_dest_port() const { return dest_port; }
 
     static char *serialize(const Message &msg, size_t &buffer_size)
     {
         std::vector<char> buffer;
+        buffer.reserve(sizeof(msg.message_key) + sizeof(msg.is_ack) +
+                       sizeof(msg.sender_id) + sizeof(msg.dest_id) +
+                       sizeof(size_t) + msg.message.size());
 
-        buffer.insert(buffer.end(), reinterpret_cast<const char *>(&msg.message_key), reinterpret_cast<const char *>(&msg.message_key) + sizeof(msg.message_key));
-        buffer.insert(buffer.end(), reinterpret_cast<const char *>(&msg.is_ack), reinterpret_cast<const char *>(&msg.is_ack) + sizeof(msg.is_ack));
+        buffer.insert(buffer.end(),
+                      reinterpret_cast<const char *>(&msg.message_key),
+                      reinterpret_cast<const char *>(&msg.message_key) + sizeof(msg.message_key));
 
-        buffer.insert(buffer.end(), reinterpret_cast<const char *>(&msg.sender_id), reinterpret_cast<const char *>(&msg.sender_id) + sizeof(msg.sender_id));
-        buffer.insert(buffer.end(), reinterpret_cast<const char *>(&msg.dest_id), reinterpret_cast<const char *>(&msg.dest_id) + sizeof(msg.dest_id));
+        buffer.insert(buffer.end(),
+                      reinterpret_cast<const char *>(&msg.is_ack),
+                      reinterpret_cast<const char *>(&msg.is_ack) + sizeof(msg.is_ack));
+
+        buffer.insert(buffer.end(),
+                      reinterpret_cast<const char *>(&msg.sender_id),
+                      reinterpret_cast<const char *>(&msg.sender_id) + sizeof(msg.sender_id));
+
+        buffer.insert(buffer.end(),
+                      reinterpret_cast<const char *>(&msg.dest_id),
+                      reinterpret_cast<const char *>(&msg.dest_id) + sizeof(msg.dest_id));
 
         size_t msg_size = msg.message.size();
-        buffer.insert(buffer.end(), reinterpret_cast<const char *>(&msg_size), reinterpret_cast<const char *>(&msg_size) + sizeof(msg_size));
-        buffer.insert(buffer.end(), msg.message.begin(), msg.message.end());
+        buffer.insert(buffer.end(),
+                      reinterpret_cast<const char *>(&msg_size),
+                      reinterpret_cast<const char *>(&msg_size) + sizeof(msg_size));
+        buffer.insert(buffer.end(),
+                      msg.message.begin(), msg.message.end());
 
         buffer_size = buffer.size();
         char *final_buffer = new char[buffer_size];
@@ -106,9 +95,8 @@ public:
         std::memcpy(&dest_id, buffer + offset, sizeof(dest_id));
         offset += sizeof(dest_id);
 
-        std::string message;
         size_t msg_size;
-        std::memcpy(&msg_size, buffer + offset, sizeof(size_t));
+        std::memcpy(&msg_size, buffer + offset, sizeof(msg_size));
         offset += sizeof(msg_size);
 
         std::string msg(buffer + offset, buffer + offset + msg_size);
@@ -116,12 +104,10 @@ public:
 
         if (offset != received_size)
         {
-            std::cerr << "Deserialization error: received buffer size is different than expected message size." << std::endl;
-            std::cerr << "Expected size: " << received_size << ", Processed size: " << offset << std::endl;
-            throw std::runtime_error("Deserialization error: received buffer size is different than expected message size.");
+            throw std::runtime_error("Deserialization error: buffer size mismatch");
         }
 
-        return Message(message_key, sender_id, message, dest_id, dest_addr, dest_port, is_ack);
+        return Message(message_key, sender_id, msg, dest_id, dest_addr, dest_port, is_ack);
     }
 };
 
