@@ -18,11 +18,11 @@ private:
     uint8_t sender_id;
     uint32_t seq_num;
     uint32_t active_proposal_number;
-    std::unordered_set<uint16_t> proposal;
+    std::unordered_set<int32_t> proposal;
     ProposalType type;
 
 public:
-    ProposalMessage(uint8_t sender_id, uint32_t seq_num, uint32_t active_proposal_number, const std::unordered_set<uint16_t> &proposal, ProposalType type)
+    ProposalMessage(uint8_t sender_id, uint32_t seq_num, uint32_t active_proposal_number, const std::unordered_set<int32_t> &proposal, ProposalType type)
         : sender_id(sender_id), seq_num(seq_num), active_proposal_number(active_proposal_number), proposal(proposal), type(type) {}
 
     ProposalMessage(uint8_t sender_id, uint32_t seq_num, uint32_t active_proposal_number, ProposalType type)
@@ -33,8 +33,24 @@ public:
     uint8_t getSenderId() const { return sender_id; }
     uint32_t getSeqNum() const { return seq_num; }
     uint32_t getActiveProposalNumber() const { return active_proposal_number; }
-    const std::unordered_set<uint16_t> &getProposal() const { return proposal; }
+    const std::unordered_set<int32_t> &getProposal() const { return proposal; }
     ProposalType getType() const { return type; }
+
+    std::string toString() const
+    {
+        std::string proposal_str;
+        for (auto it = proposal.begin(); it != proposal.end(); ++it)
+        {
+            if (it != proposal.begin())
+                proposal_str += " ";
+            proposal_str += std::to_string(static_cast<unsigned int>(*it));
+        }
+
+        return std::to_string(seq_num) + " " +
+               std::to_string(active_proposal_number) + " " +
+               std::to_string(static_cast<unsigned int>(type)) + " " +
+               proposal_str;
+    }
 
     Message toMessage(
         uint8_t dest_id, in_addr_t dest_addr, unsigned short dest_port) const
@@ -70,8 +86,8 @@ public:
         }
         ProposalType type = static_cast<ProposalType>(type_int);
 
-        std::unordered_set<uint16_t> proposal;
-        uint16_t element;
+        std::unordered_set<int32_t> proposal;
+        int32_t element;
         while (iss >> element)
         {
             proposal.insert(element);

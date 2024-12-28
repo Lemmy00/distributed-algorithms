@@ -102,7 +102,7 @@ int main(int argc, char **argv)
   uint8_t myID = static_cast<uint8_t>(parser.id());
   Parser::Host currentHost = hostMap[myID];
 
-  logger = std::make_shared<Logger>(parser.outputPath(), 20000);
+  logger = std::make_shared<Logger>(parser.outputPath(), 10000);
   latticeAgreement = std::make_unique<LatticeAgreement>(myID, currentHost.ip, currentHost.port, hostMap, [](const std::string &decodedProposal)
                                                         { logger->log(decodedProposal); });
   latticeAgreement->startBroadcaster(3);
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
                                           {
     for (uint32_t i = 1; i <= config.get_num_proposals(); i ++)
     {
-      std::unordered_set<uint16_t> proposal = config.read_next_proposal();
+      std::unordered_set<int32_t> proposal = config.read_next_proposal();
       if (latticeAgreement->getStopThreads())
       {
         break;

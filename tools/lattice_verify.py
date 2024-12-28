@@ -12,11 +12,11 @@ if __name__ == "__main__":
     num_rounds = int(sys.argv[1])
     input_files_dir = sys.argv[2]
     output_files_dir = sys.argv[3]
-    term_processes = set(int(x) for x in sys.argv[4:])
+    term_processes = set(int(x) - 1 for x in sys.argv[4:])
     
-    input_files = [file for file in os.listdir(input_files_dir) if file.endswith('.config') and file.startswith('lattice-agreement')]
+    input_files = [file for file in os.listdir(input_files_dir) if file.endswith('.config')]
     output_files = [file for file in os.listdir(output_files_dir) if file.endswith('.output')]
-    
+
     input_files.sort()
     output_files.sort()
     
@@ -59,14 +59,13 @@ if __name__ == "__main__":
         for j in range(num_rounds):
             assert proposals_process[i][j].issubset(decisions_process[i][j]), f"Proposals are not subset of decisions for process {i + 1} in round {j + 1}"
               
-    print("Proposals:")
-    for i in range(num_processes):
-        print(f"Process {i + 1}: {proposals_process[i]}")
+    # print("Proposals:")
+    '''for i in range(num_processes):
+        print(f"Process {i + 1}: {proposals_process[i]}")'''
         
-    print("\nDecisions:")
-    for i in range(num_processes):
-        print(f"Process {i + 1}: {decisions_process[i]}")
-
+    # print("\nDecisions:")
+    '''for i in range(num_processes):
+        print(f"Process {i + 1}: {decisions_process[i]}")'''
 
     print("Termination successful!")
     

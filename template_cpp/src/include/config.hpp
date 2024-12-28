@@ -43,9 +43,9 @@ public:
         infile.ignore();
     }
 
-    std::unordered_set<uint16_t> read_next_proposal()
+    std::unordered_set<int32_t> read_next_proposal()
     {
-        std::unordered_set<uint16_t> proposal;
+        std::unordered_set<int32_t> proposal;
 
         std::string line;
         if (!getline(infile, line))
@@ -54,7 +54,7 @@ public:
         }
 
         std::istringstream iss(line);
-        uint16_t element;
+        int32_t element;
         while (iss >> element)
         {
             proposal.insert(element);
