@@ -40,7 +40,7 @@ public:
 class PerfectLinks
 {
 private:
-    uint8_t sender_id;
+    const uint8_t sender_id;
 
     FairLossLinks fairLossLinks;
     // std::unordered_map<std::pair<uint8_t, uint32_t>, std::chrono::steady_clock::time_point, pairhash>

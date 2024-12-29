@@ -39,6 +39,11 @@ public:
     const std::unordered_set<int32_t> &getProposal() const { return proposal; }
     ProposalType getType() const { return type; }
 
+    void setAcceptedValues(const std::unordered_set<int32_t> &accepted_values)
+    {
+        proposal = accepted_values;
+    }
+
     std::string toString() const
     {
         std::string proposal_str;

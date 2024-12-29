@@ -17,7 +17,7 @@
 class BestEffortBroadcast
 {
 private:
-    uint8_t sender_id;
+    const uint8_t sender_id;
 
     PerfectLinks perfectLinks;
     std::unordered_map<uint8_t, Parser::Host> processes;
