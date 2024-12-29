@@ -29,14 +29,8 @@ python3 stress.py fifo -r ../template_cpp/run.sh -l ../example/output/stress -p 
 
 python3 stress.py fifo -r ../template_cpp/run.sh -l ../example/output/stress -p 7 -m 2000
 
+python3 stress.py agreement -r ../template_cpp/run.sh -l ../example/output/stress -p 5 -n 500 -v 10 -d 30
 
-python3 lattice_verify.py 10  ../example/configs/ ../example/output/
+python3 lattice_verify.py 10  ../example/configs/gen ../example/output/
 
 ```
-
-## TODO
-
-- [x] Multiple messages per packet
-- [x] Delte process stuff of the non-active proposals
-- [x] Verify the correctness of the lattice agreement
-- [x] Verify memory usage, do we need also a queue limit?

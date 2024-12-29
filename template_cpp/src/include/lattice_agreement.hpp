@@ -75,7 +75,7 @@ LatticeAgreement::LatticeAgreement(uint8_t sender_id, in_addr_t ip, unsigned sho
       threshold_acks(static_cast<uint8_t>(processes.size() / 2))
 {
     double number_processes = static_cast<double>(processes.size());
-    sequence_buffer_max_latency = calculate_buffer_size(300, 0.03, number_processes, 20);
+    sequence_buffer_max_latency = calculate_buffer_size(400, 0.06, number_processes, 5);
 
     std::cout << "Sequence buffer max latency: " << sequence_buffer_max_latency << "\n\n";
 }
