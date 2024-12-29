@@ -41,7 +41,7 @@ public:
 };
 
 BestEffortBroadcast::BestEffortBroadcast(uint8_t sender_id, in_addr_t ip, unsigned short port, const std::unordered_map<uint8_t, Parser::Host> &processes, std::function<void(const ProposalMessage &)> deliverCallback)
-    : sender_id(sender_id), perfectLinks(sender_id, ip, port, deliverCallback), processes(processes)
+    : sender_id(sender_id), perfectLinks(sender_id, ip, port, processes, deliverCallback), processes(processes)
 {
 }
 
@@ -81,7 +81,7 @@ void BestEffortBroadcast::broadcast(const ProposalMessage &proposal)
             continue;
         }
 
-        perfectLinks.send(proposal.toMessage(id, process.ip, process.port));
+        perfectLinks.send(proposal.toMessage(id));
     }
 }
 
@@ -99,11 +99,11 @@ void BestEffortBroadcast::broadcast(const ProposalMessage &proposal, uint32_t se
             continue;
         }
 
-        perfectLinks.send(proposal.toMessage(id, process.ip, process.port), seq_num, active_proposal_number);
+        perfectLinks.send(proposal.toMessage(id), seq_num, active_proposal_number);
     }
 }
 
 void BestEffortBroadcast::send(const ProposalMessage &proposal, uint8_t id)
 {
-    perfectLinks.send(proposal.toMessage(id, processes[id].ip, processes[id].port));
+    perfectLinks.send(proposal.toMessage(id));
 }

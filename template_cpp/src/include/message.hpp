@@ -3,6 +3,8 @@
 #include <vector>
 #include <utility>
 #include <string>
+#include <atomic>
+#include <cassert>
 
 class Message
 {
@@ -17,19 +19,17 @@ private:
     std::string message;
 
     const uint8_t dest_id;
-    const in_addr_t dest_addr;
-    const unsigned short dest_port;
 
     static std::atomic<uint64_t> msg_counter;
 
 public:
-    Message(const uint8_t sender_id, const uint32_t seq_num, const uint32_t active_proposal_number, const uint8_t type, const std::string &message, const uint8_t dest_id, const in_addr_t dest_addr, const unsigned short dest_port, const bool is_ack) : is_ack(is_ack), sender_id(sender_id), seq_num(seq_num), active_proposal_number(active_proposal_number), type(type), message(message), dest_id(dest_id), dest_addr(dest_addr), dest_port(dest_port)
+    Message(const uint8_t sender_id, const uint32_t seq_num, const uint32_t active_proposal_number, const uint8_t type, const std::string &message, const uint8_t dest_id, const bool is_ack) : is_ack(is_ack), sender_id(sender_id), seq_num(seq_num), active_proposal_number(active_proposal_number), type(type), message(message), dest_id(dest_id)
     {
         message_key = msg_counter.fetch_add(1);
     }
 
-    Message(const uint64_t message_key, const uint8_t sender_id, const uint8_t dest_id, const in_addr_t dest_addr, const unsigned short dest_port, const bool is_ack) : message_key(message_key), is_ack(is_ack), sender_id(sender_id), seq_num(0), active_proposal_number(0), type(0), dest_id(dest_id), dest_addr(dest_addr), dest_port(dest_port) {}
-    Message(const uint64_t message_key, const uint8_t sender_id, const uint32_t seq_num, const uint32_t active_proposal_number, const uint8_t type, const std::string &message, const uint8_t dest_id, const in_addr_t dest_addr, const unsigned short dest_port, const bool is_ack) : message_key(message_key), is_ack(is_ack), sender_id(sender_id), seq_num(seq_num), active_proposal_number(active_proposal_number), type(type), message(message), dest_id(dest_id), dest_addr(dest_addr), dest_port(dest_port) {}
+    Message(const uint64_t message_key, const uint8_t sender_id, const uint8_t dest_id, const bool is_ack) : message_key(message_key), is_ack(is_ack), sender_id(sender_id), seq_num(0), active_proposal_number(0), type(0), dest_id(dest_id) {}
+    Message(const uint64_t message_key, const uint8_t sender_id, const uint32_t seq_num, const uint32_t active_proposal_number, const uint8_t type, const std::string &message, const uint8_t dest_id, const bool is_ack) : message_key(message_key), is_ack(is_ack), sender_id(sender_id), seq_num(seq_num), active_proposal_number(active_proposal_number), type(type), message(message), dest_id(dest_id) {}
 
     ~Message() = default;
 
@@ -43,8 +43,6 @@ public:
     uint8_t get_type() const { return type; }
     uint8_t get_dest_id() const { return dest_id; }
     const std::string &get_message() const { return message; }
-    in_addr_t get_dest_addr() const { return dest_addr; }
-    unsigned short get_dest_port() const { return dest_port; }
 
     static char *serialize(const Message &msg, size_t &buffer_size)
     {
@@ -82,12 +80,7 @@ public:
                       reinterpret_cast<const char *>(&msg.dest_id),
                       reinterpret_cast<const char *>(&msg.dest_id) + sizeof(msg.dest_id));
 
-        size_t msg_size = msg.message.size();
-        buffer.insert(buffer.end(),
-                      reinterpret_cast<const char *>(&msg_size),
-                      reinterpret_cast<const char *>(&msg_size) + sizeof(msg_size));
-        buffer.insert(buffer.end(),
-                      msg.message.begin(), msg.message.end());
+        buffer.insert(buffer.end(), msg.message.begin(), msg.message.end());
 
         buffer_size = buffer.size();
         char *final_buffer = new char[buffer_size];
@@ -96,7 +89,7 @@ public:
         return final_buffer;
     }
 
-    static Message deserialize(const char *buffer, size_t received_size, in_addr_t dest_addr, unsigned short dest_port)
+    static Message deserialize(const char *buffer, size_t received_size, uint8_t expected_dest_id)
     {
         size_t offset = 0;
 
@@ -127,20 +120,10 @@ public:
         uint8_t dest_id;
         std::memcpy(&dest_id, buffer + offset, sizeof(dest_id));
         offset += sizeof(dest_id);
+        assert(dest_id == expected_dest_id && "Destination ID does not match the expected value");
 
-        size_t msg_size;
-        std::memcpy(&msg_size, buffer + offset, sizeof(msg_size));
-        offset += sizeof(msg_size);
-
-        std::string msg(buffer + offset, buffer + offset + msg_size);
-        offset += msg_size;
-
-        if (offset != received_size)
-        {
-            throw std::runtime_error("Deserialization error: buffer size mismatch");
-        }
-
-        return Message(message_key, sender_id, seq_num, active_proposal_number, type, msg, dest_id, dest_addr, dest_port, is_ack);
+        std::string msg(buffer + offset, buffer + received_size);
+        return Message(message_key, sender_id, seq_num, active_proposal_number, type, msg, dest_id, is_ack);
     }
 };
 

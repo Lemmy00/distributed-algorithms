@@ -19,7 +19,6 @@
 #include <string>
 
 #include "fair_loss_links.hpp"
-#include "message_batch.hpp"
 #include "ts_queue.hpp"
 #include "message.hpp"
 #include "proposal_message.hpp"
@@ -43,6 +42,8 @@ private:
     const uint8_t sender_id;
 
     FairLossLinks fairLossLinks;
+    std::unordered_map<uint8_t, Parser::Host> processes;
+
     std::unordered_set<std::pair<uint8_t, uint64_t>, pairhash> receivedMessages;
     std::unordered_set<std::pair<uint8_t, uint64_t>, pairhash> ackedMessages;
     std::mutex ackedMessagesMutex;
@@ -56,7 +57,7 @@ private:
     std::function<void(const ProposalMessage &)> deliverCallback;
 
 public:
-    PerfectLinks(uint8_t sender_id, in_addr_t ip, unsigned short port, std::function<void(const ProposalMessage &)> deliverCallback);
+    PerfectLinks(uint8_t sender_id, in_addr_t ip, unsigned short port, std::unordered_map<uint8_t, Parser::Host> processes, std::function<void(const ProposalMessage &)> deliverCallback);
     ~PerfectLinks();
 
     void send(const Message &msg);
@@ -76,8 +77,8 @@ private:
     void sendAck(const Message &ack_msg);
 };
 
-PerfectLinks::PerfectLinks(uint8_t sender_id, in_addr_t ip, unsigned short port, std::function<void(const ProposalMessage &)> deliverCallback)
-    : sender_id(sender_id), fairLossLinks(ip, port), deliverCallback(std::move(deliverCallback)) {}
+PerfectLinks::PerfectLinks(uint8_t sender_id, in_addr_t ip, unsigned short port, std::unordered_map<uint8_t, Parser::Host> processes, std::function<void(const ProposalMessage &)> deliverCallback)
+    : sender_id(sender_id), fairLossLinks(ip, port), processes(processes), deliverCallback(std::move(deliverCallback)) {}
 
 PerfectLinks::~PerfectLinks()
 {
@@ -121,7 +122,7 @@ void PerfectLinks::send(const Message &msg)
     size_t buffer_size;
     std::unique_ptr<char[]> buffer(Message::serialize(msg, buffer_size));
 
-    fairLossLinks.send(msg.get_dest_addr(), msg.get_dest_port(), buffer.get(), buffer_size);
+    fairLossLinks.send(processes[msg.get_dest_id()].ip, processes[msg.get_dest_id()].port, buffer.get(), buffer_size);
     messageQueue.push(msg);
 }
 
@@ -141,7 +142,7 @@ void PerfectLinks::send(const Message &msg, uint32_t seq_num, uint32_t active_pr
     size_t buffer_size;
     std::unique_ptr<char[]> buffer(Message::serialize(msg, buffer_size));
 
-    fairLossLinks.send(msg.get_dest_addr(), msg.get_dest_port(), buffer.get(), buffer_size);
+    fairLossLinks.send(processes[msg.get_dest_id()].ip, processes[msg.get_dest_id()].port, buffer.get(), buffer_size);
     messageQueue.push(msg);
 }
 
@@ -181,7 +182,7 @@ void PerfectLinks::sendWorker()
         size_t buffer_size;
         std::unique_ptr<char[]> buffer(Message::serialize(msg, buffer_size));
 
-        fairLossLinks.send(msg.get_dest_addr(), msg.get_dest_port(), buffer.get(), buffer_size);
+        fairLossLinks.send(processes[msg.get_dest_id()].ip, processes[msg.get_dest_id()].port, buffer.get(), buffer_size);
         messageQueue.push(msg);
     }
 }
@@ -204,7 +205,7 @@ void PerfectLinks::receiverWorker()
 
         if (recv_size > 0)
         {
-            Message msg = Message::deserialize(buffer, recv_size, fairLossLinks.get_ip(), fairLossLinks.get_port());
+            Message msg = Message::deserialize(buffer, recv_size, sender_id);
             if (msg.get_is_ack())
             {
                 std::lock_guard<std::mutex> lock(ackedMessagesMutex);
@@ -213,7 +214,7 @@ void PerfectLinks::receiverWorker()
                 continue;
             }
 
-            Message ack_msg(msg.get_message_key(), this->sender_id, msg.get_sender_id(), src_addr.s_addr, src_port, true);
+            Message ack_msg(msg.get_message_key(), this->sender_id, msg.get_sender_id(), true);
             sendAck(ack_msg);
 
             {
@@ -247,10 +248,10 @@ void PerfectLinks::receiverWorker()
     }
 }
 
-void PerfectLinks::sendAck(const Message &ack_msgs)
+void PerfectLinks::sendAck(const Message &ack_msg)
 {
     size_t buffer_size;
-    std::unique_ptr<char[]> buffer(Message::serialize(ack_msgs, buffer_size));
+    std::unique_ptr<char[]> buffer(Message::serialize(ack_msg, buffer_size));
 
-    fairLossLinks.send(ack_msgs.get_dest_addr(), ack_msgs.get_dest_port(), buffer.get(), buffer_size);
+    fairLossLinks.send(processes[ack_msg.get_dest_id()].ip, processes[ack_msg.get_dest_id()].port, buffer.get(), buffer_size);
 }

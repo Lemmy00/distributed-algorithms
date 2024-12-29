@@ -62,8 +62,7 @@ public:
                proposal_str;
     }
 
-    Message toMessage(
-        uint8_t dest_id, in_addr_t dest_addr, unsigned short dest_port) const
+    Message toMessage(uint8_t dest_id) const
     {
         std::string proposal_str;
         for (auto it = proposal.begin(); it != proposal.end(); ++it)
@@ -81,7 +80,8 @@ public:
             active_proposal_number,
             static_cast<uint8_t>(type),
             proposal_str,
-            dest_id, dest_addr, dest_port, false);
+            dest_id,
+            false);
     }
 
     static ProposalMessage fromMessage(const Message &msg)
