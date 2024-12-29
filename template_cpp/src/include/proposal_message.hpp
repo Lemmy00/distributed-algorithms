@@ -2,6 +2,9 @@
 
 #include <cstdint>
 #include <unordered_set>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 
 #include "message.hpp"
 
@@ -42,7 +45,9 @@ public:
         for (auto it = proposal.begin(); it != proposal.end(); ++it)
         {
             if (it != proposal.begin())
+            {
                 proposal_str += " ";
+            }
             proposal_str += std::to_string(static_cast<unsigned int>(*it));
         }
 
@@ -94,5 +99,22 @@ public:
         }
 
         return ProposalMessage(sender_id, seq_num, active_proposal_number, proposal, type);
+    }
+
+    static std::string decodeProposal(const std::unordered_set<int32_t> &proposal)
+    {
+        std::string decodedProposal;
+        size_t i = 0;
+        for (auto element : proposal)
+        {
+            decodedProposal += std::to_string(static_cast<unsigned int>(element));
+            if (i < proposal.size() - 1)
+            {
+                decodedProposal += " ";
+            }
+            i++;
+        }
+
+        return decodedProposal;
     }
 };

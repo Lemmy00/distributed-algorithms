@@ -75,6 +75,11 @@ void BestEffortBroadcast::broadcast(const ProposalMessage &proposal)
             break;
         }
 
+        if (id == sender_id)
+        {
+            continue;
+        }
+
         perfectLinks.send(proposal.toMessage(id, process.ip, process.port));
     }
 }

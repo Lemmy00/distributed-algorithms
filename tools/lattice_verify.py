@@ -2,8 +2,6 @@ import os
 import sys
 import re
 
-from collections import defaultdict
-
 if __name__ == "__main__":
     if len(sys.argv) < 4:
         print("Usage: python lattice_verify.py <num_rounds> <input_files_dir> <output_files_dir> [optional: <term_process>, <term_process> ...]")

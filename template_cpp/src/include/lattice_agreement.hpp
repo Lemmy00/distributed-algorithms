@@ -21,6 +21,7 @@ class LatticeAgreement
 {
 private:
     uint8_t sender_id;
+    std::function<void(const std::string &decodedProposal)> deliverCallback;
     BestEffortBroadcast beb;
 
     std::unordered_map<uint32_t, std::unordered_set<int32_t>> proposals;
@@ -50,8 +51,8 @@ public:
     void propose(const std::unordered_set<int32_t> &proposal, uint32_t seq_num);
 
 private:
-    void handleDeliver(const ProposalMessage &proposal, std::function<void(const std::string &)> deliverCallback);
-    void handleAck(const ProposalMessage &proposal, std::function<void(const std::string &)> deliverCallback);
+    void handleDeliver(const ProposalMessage &proposal);
+    void handleAck(const ProposalMessage &proposal);
     void handleNack(const ProposalMessage &proposal);
     void handlePropose(const ProposalMessage &proposal);
 
@@ -64,8 +65,9 @@ LatticeAgreement::LatticeAgreement(uint8_t sender_id, in_addr_t ip, unsigned sho
                                    const std::unordered_map<uint8_t, Parser::Host> &processes,
                                    std::function<void(const std::string &)> deliverCallback)
     : sender_id(sender_id),
-      beb(sender_id, ip, port, processes, [this, deliverCallback](const ProposalMessage &proposal)
-          { this->handleDeliver(proposal, deliverCallback); }),
+      deliverCallback(std::move(deliverCallback)),
+      beb(sender_id, ip, port, processes, [this](const ProposalMessage &proposal)
+          { this->handleDeliver(proposal); }),
       threshold_acks(static_cast<uint8_t>(processes.size() / 2))
 {
     double number_processes = static_cast<double>(processes.size());
@@ -92,10 +94,11 @@ void LatticeAgreement::propose(const std::unordered_set<int32_t> &proposal, uint
     }
 
     ProposalMessage propose_msg(sender_id, seq_num, active_proposal_number[seq_num], proposal, PROPOSAL_TYPE_PROPOSE);
+    handleDeliver(propose_msg);
     beb.broadcast(propose_msg);
 }
 
-void LatticeAgreement::handleDeliver(const ProposalMessage &proposal, std::function<void(const std::string &)> deliverCallback)
+void LatticeAgreement::handleDeliver(const ProposalMessage &proposal)
 {
     std::unique_lock<std::mutex> lock(lattice_mutex);
     if (proposal.getType() == PROPOSAL_TYPE_PROPOSE)
@@ -104,7 +107,7 @@ void LatticeAgreement::handleDeliver(const ProposalMessage &proposal, std::funct
     }
     else if (proposal.getType() == PROPOSAL_TYPE_ACK)
     {
-        handleAck(proposal, deliverCallback);
+        handleAck(proposal);
     }
     else if (proposal.getType() == PROPOSAL_TYPE_NACK)
     {
@@ -122,17 +125,32 @@ void LatticeAgreement::handlePropose(const ProposalMessage &proposal)
     {
         accepted_values[proposal.getSeqNum()] = proposal.getProposal();
         ProposalMessage ack_msg(sender_id, proposal.getSeqNum(), proposal.getActiveProposalNumber(), PROPOSAL_TYPE_ACK);
-        beb.send(ack_msg, proposal.getSenderId());
+
+        if (proposal.getSenderId() == sender_id)
+        {
+            handleAck(ack_msg);
+        }
+        else
+        {
+            beb.send(ack_msg, proposal.getSenderId());
+        }
     }
     else
     {
         set_union(accepted_values[proposal.getSeqNum()], proposal.getProposal());
         ProposalMessage nack_msg(sender_id, proposal.getSeqNum(), proposal.getActiveProposalNumber(), accepted_values[proposal.getSeqNum()], PROPOSAL_TYPE_NACK);
-        beb.send(nack_msg, proposal.getSenderId());
+        if (proposal.getSenderId() == sender_id)
+        {
+            handleNack(nack_msg);
+        }
+        else
+        {
+            beb.send(nack_msg, proposal.getSenderId());
+        }
     }
 }
 
-void LatticeAgreement::handleAck(const ProposalMessage &proposal, std::function<void(const std::string &)> deliverCallback)
+void LatticeAgreement::handleAck(const ProposalMessage &proposal)
 {
     if (!active[proposal.getSeqNum()])
     {
@@ -148,17 +166,7 @@ void LatticeAgreement::handleAck(const ProposalMessage &proposal, std::function<
     if (num_acks[proposal.getSeqNum()] > threshold_acks)
     {
         // save proposal
-        std::string decodedProposal;
-        size_t i = 0;
-        for (auto element : proposals[proposal.getSeqNum()])
-        {
-            decodedProposal += std::to_string(static_cast<unsigned int>(element));
-            if (i < proposals[proposal.getSeqNum()].size() - 1)
-            {
-                decodedProposal += " ";
-            }
-            i++;
-        }
+        std::string decodedProposal = ProposalMessage::decodeProposal(proposals[proposal.getSeqNum()]);
 
         // turn off active
         active[proposal.getSeqNum()] = false;
