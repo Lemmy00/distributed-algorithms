@@ -17,7 +17,6 @@
 #include <vector>
 #include <condition_variable>
 #include <string>
-#include <map>
 
 #include "fair_loss_links.hpp"
 #include "message_batch.hpp"
@@ -49,7 +48,8 @@ private:
     std::mutex ackedMessagesMutex;
     std::mutex receivedMessagesMutex;
 
-    std::map<uint32_t, uint32_t> active_proposal_number;
+    std::unordered_map<uint32_t, uint32_t> activeProposalNumberMap;
+    std::mutex activeProposalNumberMutex;
 
     TSQueue<Message> messageQueue;
     std::atomic<bool> stopThreads{false};
@@ -132,6 +132,11 @@ void PerfectLinks::send(const Message &msg, uint32_t seq_num, uint32_t active_pr
         return;
     }
 
+    {
+        std::lock_guard<std::mutex> lock(activeProposalNumberMutex);
+        activeProposalNumberMap[seq_num] = active_proposal_number;
+    }
+
     // std::cout << "Sending message with ID: " << msgBatch.get_messages().front().get_msg_id() << " with content: " << msgBatch.get_messages().front().get_msg() << "\n";
     size_t buffer_size;
     std::unique_ptr<char[]> buffer(Message::serialize(msg, buffer_size));
@@ -151,6 +156,18 @@ void PerfectLinks::sendWorker()
         }
 
         const Message &msg = msgOpt.value();
+        {
+            if (msg.get_type() == PROPOSAL_TYPE_PROPOSE)
+            {
+                std::lock_guard<std::mutex> lock(activeProposalNumberMutex);
+                auto it = activeProposalNumberMap.find(msg.get_seq_num());
+                if (it != activeProposalNumberMap.end() && it->second > msg.get_active_proposal_number())
+                {
+                    continue;
+                }
+            }
+        }
+
         {
             std::lock_guard<std::mutex> lock(ackedMessagesMutex);
             auto it = ackedMessages.find(msg.get_dest_message_key());
@@ -201,8 +218,7 @@ void PerfectLinks::receiverWorker()
 
             {
                 std::lock_guard<std::mutex> lock(receivedMessagesMutex);
-                auto it = receivedMessages.find(msg.get_sender_message_key());
-                if (it != receivedMessages.end())
+                if (receivedMessages.find(msg.get_sender_message_key()) != receivedMessages.end())
                 {
                     continue;
                 }

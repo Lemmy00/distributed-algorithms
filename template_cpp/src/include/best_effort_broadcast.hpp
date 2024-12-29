@@ -30,6 +30,7 @@ public:
     ~BestEffortBroadcast();
 
     void broadcast(const ProposalMessage &proposal);
+    void broadcast(const ProposalMessage &proposal, uint32_t seq_num, uint32_t active_proposal_number);
     void send(const ProposalMessage &proposal, uint8_t id);
 
     void startBroadcaster(size_t numReceivers = 3);
@@ -81,6 +82,24 @@ void BestEffortBroadcast::broadcast(const ProposalMessage &proposal)
         }
 
         perfectLinks.send(proposal.toMessage(id, process.ip, process.port));
+    }
+}
+
+void BestEffortBroadcast::broadcast(const ProposalMessage &proposal, uint32_t seq_num, uint32_t active_proposal_number)
+{
+    for (auto &[id, process] : processes)
+    {
+        if (getStopThreads())
+        {
+            break;
+        }
+
+        if (id == sender_id)
+        {
+            continue;
+        }
+
+        perfectLinks.send(proposal.toMessage(id, process.ip, process.port), seq_num, active_proposal_number);
     }
 }
 

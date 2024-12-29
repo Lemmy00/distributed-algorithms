@@ -35,9 +35,9 @@ private:
     std::mutex accpeted_values_mutex;
 
     std::uint8_t threshold_acks;
-    std::map<uint32_t, std::string> pendintgDecisions;
+    using SavedDecision = std::pair<uint32_t, std::string>;
+    std::priority_queue<SavedDecision, std::vector<SavedDecision>, std::greater<>> pendingProposals;
 
-    size_t queue_buffer_size;
     size_t sequence_buffer_max_latency;
     uint32_t next_to_deliver = 1;
     std::condition_variable cv;
@@ -76,9 +76,7 @@ LatticeAgreement::LatticeAgreement(uint8_t sender_id, in_addr_t ip, unsigned sho
 {
     double number_processes = static_cast<double>(processes.size());
     sequence_buffer_max_latency = calculate_buffer_size(300, 0.03, number_processes, 20);
-    queue_buffer_size = 5; // calculate_buffer_size(800000, 0.1, number_processes, 5000);
 
-    std::cout << "Queue buffer size: " << queue_buffer_size << "\n";
     std::cout << "Sequence buffer max latency: " << sequence_buffer_max_latency << "\n\n";
 }
 
@@ -165,7 +163,7 @@ void LatticeAgreement::handlePropose(const ProposalMessage &proposal)
         {
             std::lock_guard<std::mutex> lock(accpeted_values_mutex);
             set_union(accepted_values[proposal.getSeqNum()], proposal.getProposal());
-            nack_msg.setAcceptedValues(accepted_values[proposal.getSeqNum()]);
+            nack_msg.setProposedValues(accepted_values[proposal.getSeqNum()]);
         }
 
         if (proposal.getSenderId() == sender_id)
@@ -208,18 +206,14 @@ void LatticeAgreement::handleAck(const ProposalMessage &proposal)
         num_acks.erase(proposal.getSeqNum());
 
         // place decision to wait for its turn
-        pendintgDecisions[proposal.getSeqNum()] = decodedProposal;
+        pendingProposals.push({proposal.getSeqNum(), decodedProposal});
 
         // try to deliver
-        auto it = pendintgDecisions.cbegin();
-        while (it != pendintgDecisions.end() && it->first == next_to_deliver)
+        while (!pendingProposals.empty() && pendingProposals.top().first == next_to_deliver)
         {
-            // std::cout << "Delivering, round " << it->first << " proposal: " << it->second << std::endl;
-
-            deliverCallback(it->second);
+            deliverCallback(pendingProposals.top().second);
             next_to_deliver++;
-            pendintgDecisions.erase(it);
-            it = pendintgDecisions.cbegin();
+            pendingProposals.pop();
         }
         cv.notify_all();
     }
@@ -227,6 +221,7 @@ void LatticeAgreement::handleAck(const ProposalMessage &proposal)
 
 void LatticeAgreement::handleNack(const ProposalMessage &proposal)
 {
+    uint32_t next_active_proposal_number;
     {
         std::unique_lock<std::mutex> lock(lattice_mutex);
         if (!active[proposal.getSeqNum()])
@@ -243,11 +238,18 @@ void LatticeAgreement::handleNack(const ProposalMessage &proposal)
 
         active_proposal_number[proposal.getSeqNum()]++;
         num_acks[proposal.getSeqNum()] = 0;
+
+        next_active_proposal_number = active_proposal_number[proposal.getSeqNum()];
     }
 
-    ProposalMessage propose_msg(sender_id, proposal.getSeqNum(), active_proposal_number[proposal.getSeqNum()], proposals[proposal.getSeqNum()], PROPOSAL_TYPE_PROPOSE);
+    ProposalMessage propose_msg(sender_id, proposal.getSeqNum(), next_active_proposal_number, PROPOSAL_TYPE_PROPOSE);
+    {
+        std::lock_guard<std::mutex> lock(accpeted_values_mutex);
+        propose_msg.setProposedValues(proposals[proposal.getSeqNum()]);
+    }
+
     handleDeliver(propose_msg);
-    beb.broadcast(propose_msg);
+    beb.broadcast(propose_msg, proposal.getSeqNum(), next_active_proposal_number);
 }
 
 void LatticeAgreement::set_union(std::unordered_set<int32_t> &a, const std::unordered_set<int32_t> &b)

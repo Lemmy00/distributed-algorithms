@@ -39,9 +39,9 @@ public:
     const std::unordered_set<int32_t> &getProposal() const { return proposal; }
     ProposalType getType() const { return type; }
 
-    void setAcceptedValues(const std::unordered_set<int32_t> &accepted_values)
+    void setProposedValues(const std::unordered_set<int32_t> &proposed_values)
     {
-        proposal = accepted_values;
+        proposal = proposed_values;
     }
 
     std::string toString() const
@@ -79,8 +79,8 @@ public:
             sender_id,
             seq_num,
             active_proposal_number,
-            std::to_string(static_cast<unsigned int>(type)) + " " +
-                proposal_str,
+            static_cast<uint8_t>(type),
+            proposal_str,
             dest_id, dest_addr, dest_port, false);
     }
 
@@ -89,16 +89,15 @@ public:
         uint8_t sender_id = msg.get_sender_id();
         uint32_t seq_num = msg.get_seq_num();
         uint32_t active_proposal_number = msg.get_active_proposal_number();
-        int type_int;
+        uint8_t type_int = msg.get_type();
 
-        std::istringstream iss(msg.get_message());
-        iss >> type_int;
-        if (type_int < 0 || type_int > 2)
+        if (type_int > 2)
         {
             throw std::runtime_error("Invalid ProposalType value in message");
         }
         ProposalType type = static_cast<ProposalType>(type_int);
 
+        std::istringstream iss(msg.get_message());
         std::unordered_set<int32_t> proposal;
         int32_t element;
         while (iss >> element)
