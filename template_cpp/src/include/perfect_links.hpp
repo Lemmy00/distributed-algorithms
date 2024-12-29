@@ -25,7 +25,7 @@
 #include "message.hpp"
 #include "proposal_message.hpp"
 
-#define BUFFER_SIZE 16384
+#define BUFFER_SIZE 32768
 
 // hash solution from https://stackoverflow.com/questions/20590656/how-to-solve-error-for-hash-function-of-pair-of-ints-in-unordered-map
 struct pairhash
@@ -243,7 +243,7 @@ void PerfectLinks::sendAck(const Message &ack_msg)
     std::unique_ptr<char[]> serializedAck(Message::serialize(ack_msg, msgSize));
 
     uint32_t count = 1;
-    size_t buffer_size = sizeof(count) + sizeof(uint64_t) + msgSize;
+    size_t buffer_size = sizeof(count) + sizeof(uint32_t) + msgSize;
 
     std::unique_ptr<char[]> batchBuffer(new char[buffer_size]);
 
@@ -251,16 +251,12 @@ void PerfectLinks::sendAck(const Message &ack_msg)
     std::memcpy(batchBuffer.get() + offset, &count, sizeof(count));
     offset += sizeof(count);
 
-    uint64_t msgSize64 = static_cast<uint64_t>(msgSize);
-    std::memcpy(batchBuffer.get() + offset, &msgSize64, sizeof(msgSize64));
-    offset += sizeof(msgSize64);
+    uint32_t msgSize32 = static_cast<uint32_t>(msgSize);
+    std::memcpy(batchBuffer.get() + offset, &msgSize32, sizeof(msgSize32));
+    offset += sizeof(msgSize32);
 
     std::memcpy(batchBuffer.get() + offset, serializedAck.get(), msgSize);
     offset += msgSize;
 
-    fairLossLinks.send(
-        processes[ack_msg.get_dest_id()].ip,
-        processes[ack_msg.get_dest_id()].port,
-        batchBuffer.get(),
-        buffer_size);
+    fairLossLinks.send(processes[ack_msg.get_dest_id()].ip, processes[ack_msg.get_dest_id()].port, batchBuffer.get(), buffer_size);
 }
