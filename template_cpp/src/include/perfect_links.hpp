@@ -20,6 +20,8 @@
 
 #include "fair_loss_links.hpp"
 #include "ts_queue.hpp"
+#include "parser.hpp"
+#include "message_batch.hpp"
 #include "message.hpp"
 #include "proposal_message.hpp"
 
@@ -43,6 +45,7 @@ private:
 
     FairLossLinks fairLossLinks;
     std::unordered_map<uint8_t, Parser::Host> processes;
+    MessageBatch messageBatches;
 
     std::unordered_set<std::pair<uint8_t, uint64_t>, pairhash> receivedMessages;
     std::unordered_set<std::pair<uint8_t, uint64_t>, pairhash> ackedMessages;
@@ -78,7 +81,7 @@ private:
 };
 
 PerfectLinks::PerfectLinks(uint8_t sender_id, in_addr_t ip, unsigned short port, std::unordered_map<uint8_t, Parser::Host> processes, std::function<void(const ProposalMessage &)> deliverCallback)
-    : sender_id(sender_id), fairLossLinks(ip, port), processes(processes), deliverCallback(std::move(deliverCallback)) {}
+    : sender_id(sender_id), fairLossLinks(ip, port), processes(processes), messageBatches(processes.size()), deliverCallback(std::move(deliverCallback)) {}
 
 PerfectLinks::~PerfectLinks()
 {
@@ -118,11 +121,6 @@ void PerfectLinks::send(const Message &msg)
         return;
     }
 
-    // std::cout << "Sending message with ID: " << msgBatch.get_messages().front().get_msg_id() << " with content: " << msgBatch.get_messages().front().get_msg() << "\n";
-    size_t buffer_size;
-    std::unique_ptr<char[]> buffer(Message::serialize(msg, buffer_size));
-
-    fairLossLinks.send(processes[msg.get_dest_id()].ip, processes[msg.get_dest_id()].port, buffer.get(), buffer_size);
     messageQueue.push(msg);
 }
 
@@ -138,11 +136,6 @@ void PerfectLinks::send(const Message &msg, uint32_t seq_num, uint32_t active_pr
         activeProposalNumberMap[seq_num] = active_proposal_number;
     }
 
-    // std::cout << "Sending message with ID: " << msgBatch.get_messages().front().get_msg_id() << " with content: " << msgBatch.get_messages().front().get_msg() << "\n";
-    size_t buffer_size;
-    std::unique_ptr<char[]> buffer(Message::serialize(msg, buffer_size));
-
-    fairLossLinks.send(processes[msg.get_dest_id()].ip, processes[msg.get_dest_id()].port, buffer.get(), buffer_size);
     messageQueue.push(msg);
 }
 
@@ -180,9 +173,12 @@ void PerfectLinks::sendWorker()
         }
 
         size_t buffer_size;
-        std::unique_ptr<char[]> buffer(Message::serialize(msg, buffer_size));
+        auto batch_payload = messageBatches.serialize(msg, buffer_size);
+        if (batch_payload.has_value())
+        {
+            fairLossLinks.send(processes[msg.get_dest_id()].ip, processes[msg.get_dest_id()].port, batch_payload.value().get(), buffer_size);
+        }
 
-        fairLossLinks.send(processes[msg.get_dest_id()].ip, processes[msg.get_dest_id()].port, buffer.get(), buffer_size);
         messageQueue.push(msg);
     }
 }
@@ -205,53 +201,66 @@ void PerfectLinks::receiverWorker()
 
         if (recv_size > 0)
         {
-            Message msg = Message::deserialize(buffer, recv_size, sender_id);
-            if (msg.get_is_ack())
+            std::vector<Message> messages = MessageBatch::deserialize(buffer, recv_size, sender_id);
+            for (const auto &msg : messages)
             {
-                std::lock_guard<std::mutex> lock(ackedMessagesMutex);
-                // std::cout << "Received ACK for message with ID: " << msg.get_sender_id() << ":" << msg.get_message_key() << "\n";
-                ackedMessages.insert(msg.get_sender_message_key());
-                continue;
-            }
 
-            Message ack_msg(msg.get_message_key(), this->sender_id, msg.get_sender_id(), true);
-            sendAck(ack_msg);
-
-            {
-                std::lock_guard<std::mutex> lock(receivedMessagesMutex);
-                if (receivedMessages.find(msg.get_sender_message_key()) != receivedMessages.end())
+                if (msg.get_is_ack())
                 {
+                    std::lock_guard<std::mutex> lock(ackedMessagesMutex);
+                    // std::cout << "Received ACK for message with ID: " << msg.get_sender_id() << ":" << msg.get_message_key() << "\n";
+                    ackedMessages.insert(msg.get_sender_message_key());
                     continue;
                 }
 
-                receivedMessages.insert(msg.get_sender_message_key());
+                Message ack_msg(msg.get_message_key(), this->sender_id, msg.get_sender_id(), true);
+                sendAck(ack_msg);
+
+                {
+                    std::lock_guard<std::mutex> lock(receivedMessagesMutex);
+                    if (receivedMessages.find(msg.get_sender_message_key()) != receivedMessages.end())
+                    {
+                        continue;
+                    }
+
+                    receivedMessages.insert(msg.get_sender_message_key());
+                }
+
+                if (stopThreads)
+                {
+                    break;
+                }
+
+                deliverCallback(ProposalMessage::fromMessage(msg));
             }
-
-            if (stopThreads)
-            {
-                break;
-            }
-
-            deliverCallback(ProposalMessage::fromMessage(msg));
-
-            /*for (const auto &msg : msgBatch.get_messages())
-            {
-                logger->log("d " + std::to_string(msg.get_sender_id()) + " " + msg.get_msg());
-            }*/
-
-            /*std::cout << "Delivered message with ID: " << front.get_msg_id()
-                      << " from sender: " << front.get_sender_id()
-                      << ", content: " << front.get_msg()
-                      << ", from address: " << inet_ntoa(src_addr)
-                      << ":" << ntohs(src_port) << "\n";*/
         }
     }
 }
 
 void PerfectLinks::sendAck(const Message &ack_msg)
 {
-    size_t buffer_size;
-    std::unique_ptr<char[]> buffer(Message::serialize(ack_msg, buffer_size));
+    size_t msgSize = 0;
+    std::unique_ptr<char[]> serializedAck(Message::serialize(ack_msg, msgSize));
 
-    fairLossLinks.send(processes[ack_msg.get_dest_id()].ip, processes[ack_msg.get_dest_id()].port, buffer.get(), buffer_size);
+    uint32_t count = 1;
+    size_t buffer_size = sizeof(count) + sizeof(uint64_t) + msgSize;
+
+    std::unique_ptr<char[]> batchBuffer(new char[buffer_size]);
+
+    size_t offset = 0;
+    std::memcpy(batchBuffer.get() + offset, &count, sizeof(count));
+    offset += sizeof(count);
+
+    uint64_t msgSize64 = static_cast<uint64_t>(msgSize);
+    std::memcpy(batchBuffer.get() + offset, &msgSize64, sizeof(msgSize64));
+    offset += sizeof(msgSize64);
+
+    std::memcpy(batchBuffer.get() + offset, serializedAck.get(), msgSize);
+    offset += msgSize;
+
+    fairLossLinks.send(
+        processes[ack_msg.get_dest_id()].ip,
+        processes[ack_msg.get_dest_id()].port,
+        batchBuffer.get(),
+        buffer_size);
 }

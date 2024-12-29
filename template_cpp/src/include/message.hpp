@@ -10,15 +10,15 @@ class Message
 {
 private:
     uint64_t message_key;
-    const bool is_ack;
+    bool is_ack;
 
-    const uint8_t sender_id;
-    const uint32_t seq_num;
-    const uint32_t active_proposal_number;
-    const uint8_t type;
+    uint8_t sender_id;
+    uint32_t seq_num;
+    uint32_t active_proposal_number;
+    uint8_t type;
     std::string message;
 
-    const uint8_t dest_id;
+    uint8_t dest_id;
 
     static std::atomic<uint64_t> msg_counter;
 
