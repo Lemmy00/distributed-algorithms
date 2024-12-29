@@ -18,11 +18,11 @@ enum ProposalType
 class ProposalMessage
 {
 private:
-    uint8_t sender_id;
-    uint32_t seq_num;
-    uint32_t active_proposal_number;
+    const uint8_t sender_id;
+    const uint32_t seq_num;
+    const uint32_t active_proposal_number;
     std::unordered_set<int32_t> proposal;
-    ProposalType type;
+    const ProposalType type;
 
 public:
     ProposalMessage(uint8_t sender_id, uint32_t seq_num, uint32_t active_proposal_number, const std::unordered_set<int32_t> &proposal, ProposalType type)
@@ -69,27 +69,30 @@ public:
         for (auto it = proposal.begin(); it != proposal.end(); ++it)
         {
             if (it != proposal.begin())
+            {
                 proposal_str += " ";
+            }
             proposal_str += std::to_string(static_cast<unsigned int>(*it));
         }
 
         return Message(
             sender_id,
-            std::to_string(seq_num) + " " +
-                std::to_string(active_proposal_number) + " " +
-                std::to_string(static_cast<unsigned int>(type)) + " " +
+            seq_num,
+            active_proposal_number,
+            std::to_string(static_cast<unsigned int>(type)) + " " +
                 proposal_str,
             dest_id, dest_addr, dest_port, false);
     }
 
     static ProposalMessage fromMessage(const Message &msg)
     {
-        std::istringstream iss(msg.get_message());
         uint8_t sender_id = msg.get_sender_id();
-        uint32_t seq_num, active_proposal_number;
+        uint32_t seq_num = msg.get_seq_num();
+        uint32_t active_proposal_number = msg.get_active_proposal_number();
         int type_int;
 
-        iss >> seq_num >> active_proposal_number >> type_int;
+        std::istringstream iss(msg.get_message());
+        iss >> type_int;
         if (type_int < 0 || type_int > 2)
         {
             throw std::runtime_error("Invalid ProposalType value in message");

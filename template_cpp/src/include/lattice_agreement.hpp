@@ -52,7 +52,7 @@ public:
     void stop() { beb.stop(); }
     std::atomic<bool> &getStopThreads() { return beb.getStopThreads(); }
 
-    void propose(const std::unordered_set<int32_t> &proposal, uint32_t seq_num);
+    void propose(std::unordered_set<int32_t> &proposal, uint32_t seq_num);
 
 private:
     void handleDeliver(const ProposalMessage &proposal);
@@ -76,7 +76,7 @@ LatticeAgreement::LatticeAgreement(uint8_t sender_id, in_addr_t ip, unsigned sho
 {
     double number_processes = static_cast<double>(processes.size());
     sequence_buffer_max_latency = calculate_buffer_size(300, 0.03, number_processes, 20);
-    queue_buffer_size = calculate_buffer_size(800000, 0.1, number_processes, 5000);
+    queue_buffer_size = 5; // calculate_buffer_size(800000, 0.1, number_processes, 5000);
 
     std::cout << "Queue buffer size: " << queue_buffer_size << "\n";
     std::cout << "Sequence buffer max latency: " << sequence_buffer_max_latency << "\n\n";
@@ -88,8 +88,16 @@ LatticeAgreement::~LatticeAgreement()
     cv.notify_all();
 }
 
-void LatticeAgreement::propose(const std::unordered_set<int32_t> &proposal, uint32_t seq_num)
+void LatticeAgreement::propose(std::unordered_set<int32_t> &proposal, uint32_t seq_num)
 {
+    {
+        std::lock_guard<std::mutex> lock(accpeted_values_mutex);
+        if (accepted_values.find(seq_num) != accepted_values.end())
+        {
+            set_union(proposal, accepted_values[seq_num]);
+        }
+    }
+
     {
         std::unique_lock<std::mutex> lock(lattice_mutex);
         cv.wait(lock, [this, seq_num]()
@@ -99,11 +107,6 @@ void LatticeAgreement::propose(const std::unordered_set<int32_t> &proposal, uint
         active[seq_num] = true;
         active_proposal_number[seq_num] = 1;
         num_acks[seq_num] = 0;
-    }
-
-    while (queue_buffer_size < beb.getQueueSize())
-    {
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 
     ProposalMessage propose_msg(sender_id, seq_num, active_proposal_number[seq_num], proposal, PROPOSAL_TYPE_PROPOSE);
@@ -199,19 +202,19 @@ void LatticeAgreement::handleAck(const ProposalMessage &proposal)
         // turn off active
         active[proposal.getSeqNum()] = false;
 
-        // place decision to wait for its turn
-        pendintgDecisions[proposal.getSeqNum()] = decodedProposal;
-
         // erase proposal
         proposals.erase(proposal.getSeqNum());
         active_proposal_number.erase(proposal.getSeqNum());
         num_acks.erase(proposal.getSeqNum());
 
+        // place decision to wait for its turn
+        pendintgDecisions[proposal.getSeqNum()] = decodedProposal;
+
         // try to deliver
         auto it = pendintgDecisions.cbegin();
         while (it != pendintgDecisions.end() && it->first == next_to_deliver)
         {
-            std::cout << "Delivering, round " << it->first << " proposal: " << it->second << std::endl;
+            // std::cout << "Delivering, round " << it->first << " proposal: " << it->second << std::endl;
 
             deliverCallback(it->second);
             next_to_deliver++;
